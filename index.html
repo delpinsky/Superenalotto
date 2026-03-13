@@ -3515,8 +3515,7 @@ async function ghDownload(silent) {
     if (res.status === 404) { if (!silent) ghSetStatus('⚠ File non trovato su GitHub — carica prima il database.', '#e74c3c'); return false; }
     if (!res.ok) throw new Error('HTTP ' + res.status);
     const json = await res.json();
-    const content = JSON.parse(atob(json.content.replace(/
-/g, '')));
+    const content = JSON.parse(atob(json.content.replace(/\n/g, '')));
     const loaded = Array.isArray(content) ? content : (content.draws || []);
     if (!loaded.length) { ghSetStatus('⚠ File GitHub vuoto.', '#e74c3c'); return false; }
     draws = loaded;
