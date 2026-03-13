@@ -1,4 +1,4 @@
-const CACHE = 'superenalotto-v10';
+const CACHE = 'superenalotto-v11';
 const ASSETS = [
   './index.html',
   './manifest.json',

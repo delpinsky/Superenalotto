@@ -3202,6 +3202,17 @@ document.getElementById('btn-export').addEventListener('click', () => {
   setSt('ok', `✓ File JSON esportato: ${draws.length.toLocaleString('it')} estrazioni salvate.`);
 });
 
+// ── Aggiorna pillole anni dopo caricamento database ──
+function updateYearPills() {
+  const yearsSeen = new Set(draws.map(dr => parseInt(dr.date.slice(0,4))));
+  const countByYear = {};
+  draws.forEach(dr => { const y = parseInt(dr.date.slice(0,4)); countByYear[y] = (countByYear[y]||0)+1; });
+  YEARS.forEach(y => {
+    if (yearsSeen.has(y)) setYearState(y, 'done', countByYear[y]||0);
+    else setYearState(y, 'pending', 0);
+  });
+}
+
 // Import: read JSON file and restore draws
 document.getElementById('json-import-input').addEventListener('change', e => {
   const file = e.target.files[0];
@@ -3226,16 +3237,7 @@ document.getElementById('json-import-input').addEventListener('change', e => {
     recomputeConcorsi();
 
       // Restore year status indicators
-      const yearsSeen = new Set(draws.map(dr => parseInt(dr.date.slice(0,4))));
-      const countByYear = {};
-      draws.forEach(dr => {
-        const y = parseInt(dr.date.slice(0,4));
-        countByYear[y] = (countByYear[y]||0) + 1;
-      });
-      YEARS.forEach(y => {
-        if (yearsSeen.has(y)) setYearState(y, 'done', countByYear[y]||0);
-        else setYearState(y, 'pending', 0);
-      });
+      updateYearPills();
 
       // Show download controls in "resume" mode in case years are missing
       document.getElementById('prog-wrap').style.display  = 'none';
@@ -3523,6 +3525,7 @@ async function ghDownload(silent) {
     freq.fill(0);
     draws.forEach(d => d.nums.forEach(n => freq[n]++));
     showLastDrawFromDB();
+    updateYearPills();
     document.getElementById('sistema-section').style.display = 'block';
     document.getElementById('results').style.display = 'block';
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#2ecc71');
