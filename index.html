@@ -456,6 +456,29 @@
   </div>
 </div>
 
+<!-- GITHUB SYNC -->
+<div class="card" id="github-card">
+  <div class="card-title" style="display:flex;align-items:center;gap:10px">
+    <span>🔗 Sincronizzazione GitHub</span>
+  </div>
+  <div id="gh-setup" style="display:none;margin-bottom:14px">
+    <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Inserisci il tuo <b style="color:var(--text)">Personal Access Token</b> GitHub per sincronizzare il database automaticamente. Il token viene salvato solo sul tuo dispositivo.</div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <input id="gh-token-input" type="password" placeholder="ghp_xxxxxxxxxxxx" autocomplete="off"
+        style="flex:1;min-width:200px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:13px">
+      <button class="btn btn-gold" id="gh-token-save">💾 Salva Token</button>
+    </div>
+    <div style="font-size:11px;color:var(--muted);margin-top:6px">⚠ Il token non viene mai inviato a terzi — solo a api.github.com per il tuo repository.</div>
+  </div>
+  <div id="gh-status" style="font-size:12px;color:var(--muted);margin-bottom:12px"></div>
+  <div class="btn-row" style="margin-top:0;flex-wrap:wrap;gap:8px">
+    <button class="btn btn-gold" id="gh-sync-down">☁ Carica da GitHub</button>
+    <button class="btn btn-gold" id="gh-sync-up">⬆ Salva su GitHub</button>
+    <button class="btn btn-ghost" id="gh-token-change" style="font-size:11px">🔑 Cambia Token</button>
+    <button class="btn btn-ghost" id="gh-token-clear" style="font-size:11px;color:#e74c3c;border-color:#e74c3c">✕ Rimuovi Token</button>
+  </div>
+</div>
+
 <!-- Ultima Estrazione -->
 <div class="card" id="last-draw-card">
   <!-- collapsed: button only -->
@@ -3169,8 +3192,7 @@ function exportJSON() {
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
   a.href     = url;
-  const _ld = draws[draws.length-1].date;
-  a.download = 'superenalotto_' + _ld + '.json';
+  a.download = 'storico-estrazioni-superenalotto.json';
   a.click();
   URL.revokeObjectURL(url);
 }
@@ -3430,5 +3452,148 @@ showGrokSection();  // O chiama quando appropriato
       });
     }
   </script>
+
+<script>
+/* ═══════════════════════════════════════════════
+   GITHUB SYNC
+   Token salvato in localStorage (solo sul dispositivo)
+   File: storico-estrazioni-superenalotto.json
+═══════════════════════════════════════════════ */
+const GH_REPO  = 'delpinsky/Superenalotto';
+const GH_FILE  = 'storico-estrazioni-superenalotto.json';
+const GH_TOKEN_KEY = 'gh_pat_superenalotto';
+const GH_API   = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
+
+function ghGetToken()  { return localStorage.getItem(GH_TOKEN_KEY) || ''; }
+function ghSaveToken(t){ localStorage.setItem(GH_TOKEN_KEY, t); }
+function ghClearToken(){ localStorage.removeItem(GH_TOKEN_KEY); }
+
+function ghSetStatus(msg, color) {
+  const el = document.getElementById('gh-status');
+  if (el) { el.textContent = msg; el.style.color = color || 'var(--muted)'; }
+}
+
+function ghRenderUI() {
+  const token = ghGetToken();
+  const setup = document.getElementById('gh-setup');
+  if (setup) setup.style.display = token ? 'none' : 'block';
+  ghSetStatus(token ? '🔑 Token configurato — pronto per la sincronizzazione.' : '⚠ Nessun token configurato. Inserisci il token per sincronizzare.', token ? 'var(--gold)' : 'var(--muted)');
+}
+
+// ── Salva token ──────────────────────────────
+document.getElementById('gh-token-save')?.addEventListener('click', () => {
+  const val = document.getElementById('gh-token-input').value.trim();
+  if (!val) { ghSetStatus('⚠ Token vuoto!', '#e74c3c'); return; }
+  ghSaveToken(val);
+  document.getElementById('gh-token-input').value = '';
+  ghRenderUI();
+  ghSetStatus('✓ Token salvato!', '#2ecc71');
+});
+
+// ── Cambia token ─────────────────────────────
+document.getElementById('gh-token-change')?.addEventListener('click', () => {
+  const setup = document.getElementById('gh-setup');
+  if (setup) setup.style.display = 'block';
+});
+
+// ── Rimuovi token ────────────────────────────
+document.getElementById('gh-token-clear')?.addEventListener('click', () => {
+  if (!confirm('Rimuovere il token GitHub da questo dispositivo?')) return;
+  ghClearToken();
+  ghRenderUI();
+});
+
+// ── Carica da GitHub ─────────────────────────
+async function ghDownload(silent) {
+  const token = ghGetToken();
+  if (!token) { if (!silent) ghSetStatus('⚠ Nessun token configurato.', '#e74c3c'); return false; }
+  if (!silent) ghSetStatus('⏳ Scarico database da GitHub…');
+  try {
+    const res = await fetch(GH_API, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3.json' }
+    });
+    if (res.status === 404) { if (!silent) ghSetStatus('⚠ File non trovato su GitHub — carica prima il database.', '#e74c3c'); return false; }
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    const json = await res.json();
+    const content = JSON.parse(atob(json.content.replace(/
+/g, '')));
+    const loaded = Array.isArray(content) ? content : (content.draws || []);
+    if (!loaded.length) { ghSetStatus('⚠ File GitHub vuoto.', '#e74c3c'); return false; }
+    draws = loaded;
+    recomputeConcorsi();
+    freq.fill(0);
+    draws.forEach(d => d.nums.forEach(n => freq[n]++));
+    showLastDrawFromDB();
+    document.getElementById('sistema-section').style.display = 'block';
+    document.getElementById('results').style.display = 'block';
+    ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#2ecc71');
+    return true;
+  } catch(e) {
+    if (!silent) ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');
+    return false;
+  }
+}
+
+document.getElementById('gh-sync-down')?.addEventListener('click', () => ghDownload(false));
+
+// ── Salva su GitHub ──────────────────────────
+document.getElementById('gh-sync-up')?.addEventListener('click', async () => {
+  const token = ghGetToken();
+  if (!token) { ghSetStatus('⚠ Nessun token configurato.', '#e74c3c'); return; }
+  if (!draws.length) { ghSetStatus('⚠ Database vuoto — nulla da salvare.', '#e74c3c'); return; }
+  ghSetStatus('⏳ Salvataggio su GitHub…');
+  try {
+    // Controlla se il file esiste già (per ottenere sha)
+    let sha = null;
+    const check = await fetch(GH_API, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3.json' }
+    });
+    if (check.ok) { const j = await check.json(); sha = j.sha; }
+
+    const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws }, null, 0);
+    const body = { message: 'Aggiornamento database estrazioni', content: btoa(payload) };
+    if (sha) body.sha = sha;
+
+    const res = await fetch(GH_API, {
+      method: 'PUT',
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3.json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    ghSetStatus('✓ Database salvato su GitHub (' + draws.length + ' estrazioni).', '#2ecc71');
+  } catch(e) {
+    ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');
+  }
+});
+
+// ── Auto-caricamento all'avvio ───────────────
+window.addEventListener('load', async () => {
+  ghRenderUI();
+  if (ghGetToken()) {
+    const ok = await ghDownload(true);
+    if (!ok) {
+      // Fallback: prova il file pubblico senza token (se esiste)
+      try {
+        const raw = await fetch('https://raw.githubusercontent.com/' + GH_REPO + '/main/' + GH_FILE);
+        if (raw.ok) {
+          const content = await raw.json();
+          const loaded = Array.isArray(content) ? content : (content.draws || []);
+          if (loaded.length) {
+            draws = loaded;
+            recomputeConcorsi();
+            freq.fill(0);
+            draws.forEach(d => d.nums.forEach(n => freq[n]++));
+            showLastDrawFromDB();
+            document.getElementById('sistema-section').style.display = 'block';
+            document.getElementById('results').style.display = 'block';
+            ghSetStatus('✓ Database caricato automaticamente: ' + draws.length + ' estrazioni.', '#2ecc71');
+          }
+        }
+      } catch(e) {}
+    }
+  }
+});
+</script>
+
 </body>
 </html>
