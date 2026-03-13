@@ -64,9 +64,9 @@
   body{min-height:150vh}
   .wrap{position:relative;z-index:1;max-width:1060px;margin:0 auto;padding:0 20px 80px;min-height:calc(100vh + 400px)}
 
-  header{text-align:center;padding:28px 0 24px;background:var(--header-bg);margin-bottom:20px;border-radius:18px;margin-top:4px}
+  header{text-align:center;padding:16px 0 20px;background:var(--header-bg);margin-bottom:20px;border-radius:18px;margin-top:4px}
   header::after{content:'';display:block;width:180px;height:1px;background:linear-gradient(90deg,transparent,rgba(255,255,255,.5),transparent);margin:16px auto 0;opacity:.7}
-  .logo{display:inline-block;font-size:50px;color:#fff;filter:drop-shadow(0 0 16px rgba(255,255,255,.4));animation:gp 4s ease-in-out infinite}
+  .logo{display:inline-block;font-size:clamp(24px,6vw,50px);color:#fff;filter:drop-shadow(0 0 16px rgba(255,255,255,.4));animation:gp 4s ease-in-out infinite}
   @keyframes gp{0%,100%{filter:drop-shadow(0 0 12px var(--gold))}50%{filter:drop-shadow(0 0 38px var(--gold)) drop-shadow(0 0 70px rgba(245,200,66,.25))}}
   h1{font-family:'Bebas Neue',sans-serif;font-size:clamp(42px,9vw,82px);letter-spacing:7px;
     background:linear-gradient(140deg,#fff 25%,var(--gold) 65%);-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;line-height:1}
@@ -447,12 +447,14 @@
 </header>
 
 <!-- Status + Theme toggle -->
-<div class="status-bar">
-  <div class="dot dot-idle" id="st-dot"></div>
-  <span id="st-txt">Premi "Scarica Storico" per caricare automaticamente tutte le estrazioni reali.</span>
-  <div style="display:flex;align-items:center;gap:8px;margin-left:auto;flex-shrink:0">
+<div class="status-bar" style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 16px">
+  <div style="display:flex;align-items:center;justify-content:space-between;gap:8px">
     <span style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:600">MODALITÀ</span>
-    <button id="theme-toggle" title="Cambia modalità" style="background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:5px 12px;color:var(--gold);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:background .2s;white-space:nowrap">☀ CHIARA</button>
+    <button id="theme-toggle" title="Cambia modalità" style="background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:5px 14px;color:var(--gold);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:background .2s;white-space:nowrap">☀ CHIARA</button>
+  </div>
+  <div style="display:flex;align-items:center;gap:8px">
+    <div class="dot dot-idle" id="st-dot"></div>
+    <span id="st-txt">Premi "Scarica Storico" per caricare automaticamente tutte le estrazioni reali.</span>
   </div>
 </div>
 
