@@ -450,7 +450,7 @@
 <div class="status-bar" style="flex-direction:column;align-items:stretch;gap:8px;padding:10px 16px">
   <div style="display:flex;align-items:center;justify-content:flex-end;gap:8px">
     <span style="font-size:10px;letter-spacing:2px;color:var(--muted);font-weight:600">MODALITÀ</span>
-    <button id="theme-toggle" title="Cambia modalità" style="background:var(--surface3);border:1px solid var(--border);border-radius:20px;padding:5px 14px;color:var(--gold);font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:background .2s;white-space:nowrap">☀ CHIARA</button>
+    <btton id="theme-toggle" title="Cambia modalità" style="border-radius:20px;padding:5px 14px;font-size:11px;font-weight:700;letter-spacing:1px;cursor:pointer;transition:.2s;white-space:nowrap;border:1px solid transparent">☀ CHIARA</button>
   </div>
   <div style="display:flex;align-items:center;gap:8px">
     <div class="dot dot-idle" id="st-dot"></div>
@@ -3655,10 +3655,20 @@ window.addEventListener('load', async () => {
   function applyTheme(theme) {
     if (theme === 'light') {
       document.body.classList.add('light');
-      if (btn) btn.innerHTML = '🌙 SCURA';
+      if (btn) {
+        btn.innerHTML = '🌙 SCURA';
+        btn.style.background = 'rgba(24,24,36,1)';
+        btn.style.color = 'rgb(245,200,66)';
+        btn.style.border = '1px solid rgba(200,180,80,0.4)';
+      }
     } else {
       document.body.classList.remove('light');
-      if (btn) btn.innerHTML = '☀ CHIARA';
+      if (btn) {
+        btn.innerHTML = '☀ CHIARA';
+        btn.style.background = 'rgba(255,255,255,0.9)';
+        btn.style.color = 'rgb(245,200,66)';
+        btn.style.border = '1px solid rgba(245,200,66,0.3)';
+      }
     }
     localStorage.setItem(THEME_KEY, theme);
   }
