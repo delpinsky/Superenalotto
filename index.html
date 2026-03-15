@@ -3673,9 +3673,23 @@ window.addEventListener('load', async () => {
     localStorage.setItem(THEME_KEY, theme);
   }
 
-  // Load saved theme
-  const saved = localStorage.getItem(THEME_KEY) || 'dark';
-  applyTheme(saved);
+  // Carica tema: preferenza salvata → sistema OS → dark di default
+  const saved = localStorage.getItem(THEME_KEY);
+  if (saved) {
+    applyTheme(saved);
+  } else {
+    // Rileva modalità sistema (prefers-color-scheme)
+    const prefersDark = window.matchMedia('(prefers-color-scheme: dark)').matches;
+    applyTheme(prefersDark ? 'dark' : 'light');
+  }
+
+  // Ascolta cambi di modalità del sistema in tempo reale
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', e => {
+    // Solo se l'utente non ha scelto manualmente
+    if (!localStorage.getItem(THEME_KEY)) {
+      applyTheme(e.matches ? 'dark' : 'light');
+    }
+  });
 
   if (btn) {
     btn.addEventListener('click', () => {
