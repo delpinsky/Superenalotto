@@ -3279,10 +3279,19 @@ async function fetchJackpotOnly() {
       const res = await fetch(proxyFn(url), { signal: AbortSignal.timeout(15000) });
       if (!res.ok) continue;
       const html = await res.text();
+      // Log primi 300 char dopo 'jackpot' per debug
+      const dbgIdx = html.toLowerCase().indexOf('jackpot');
+      console.log('JACKPOT HTML:', dbgIdx >= 0 ? html.substring(dbgIdx, dbgIdx+300) : 'NOT FOUND');
+      // Log anche i numeri con € presenti nella pagina
+      const allEuro = html.match(/[\d][\d\.\s,]+\s*€/gi);
+      console.log('EURO found:', allEuro ? allEuro.slice(0,10) : 'NONE');
       const jm = html.match(/prossimo jackpot[\s\S]{0,50}?(\d[\d\.]+(?:\.\d{3})*(?:,\d{2})?\s*\u20ac)/i)
               || html.match(/jackpot[^\u20ac\d]{0,30}(\d[\d\.]+\s*\u20ac)/i);
       if (jm) { el.textContent = jm[1].trim().replace(/\s+/g,''); return; }
-    } catch(e) {}
+      // Se non trovato, mostra snippet per debug
+      el.textContent = 'dbg:' + (dbgIdx >= 0 ? html.substring(dbgIdx, dbgIdx+40) : 'NO-JP');
+      return;
+    } catch(e) { console.warn('jackpot err:', e.message); }
   }
 }
 
