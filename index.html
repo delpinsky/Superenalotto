@@ -1101,7 +1101,7 @@ async function fetchYear(year) {
   for (const proxyFn of PROXIES) {
     try {
       const url  = proxyFn(targetUrl);
-      const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
+      const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
       if (!resp.ok) throw new Error('HTTP ' + resp.status);
       const html = await resp.text();
       // Sanity check: page must contain at least one draw link
@@ -3037,7 +3037,8 @@ async function fetchLastDraw() {
       try {
         const url  = proxyFn(SRC_FRESH(thisYear));
         console.log('Trying proxy:', url.substring(0,60));
-        const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
+        console.log('Proxy response:', resp.status, resp.ok);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const html = await resp.text();
         if (!html.includes('estrazione-')) throw new Error('Pagina vuota o proxy cache');
