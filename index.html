@@ -3040,9 +3040,14 @@ async function fetchLastDraw() {
         const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
         console.log('Proxy response:', resp.status, resp.ok);
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const html = await resp.text();
+        // Usa arrayBuffer per evitare interferenze delle estensioni Chrome con resp.text()
+        const buf = await resp.arrayBuffer();
+        const html = new TextDecoder('utf-8').decode(buf);
+        console.log('HTML len:', html.length, 'has estrazione:', html.includes('estrazione-'));
         if (!html.includes('estrazione-')) throw new Error('Pagina vuota o proxy cache');
+        console.log('Calling parseYearPage...');
         const parsed = parseYearPage(html, thisYear);
+        console.log('Parsed draws:', parsed.length);
         if (!parsed.length) throw new Error('Nessun dato parsato');
         yearDraws = parsed;
         // Estrai jackpot dall'HTML già scaricato
