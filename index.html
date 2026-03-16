@@ -1063,11 +1063,7 @@ function parseYearPage(html, year) {
   results.forEach((dr, i) => dr.concorso = i + 1);
 
   // Estrai jackpot dall'HTML (es. "135.500.000 €")
-  const jpIdx = html.toLowerCase().indexOf('jackpot');
-  console.log('JACKPOT ctx:', jpIdx >= 0 ? html.substring(jpIdx, jpIdx+150) : 'NOT FOUND');
-  const jm = html.match(/prossimo jackpot[^\d\u20ac]{0,30}([\d][\d.,\s]+\u20ac)/i)
-          || html.match(/([\d]{2,3}(?:\.[\d]{3})+(?:,[\d]{2})?\s*\u20ac)/i);
-  console.log('JACKPOT match:', jm ? jm[1] : 'NO MATCH');
+  // Jackpot non è in risultati/ANNO — viene fetchato separatamente
   if (jm) {
     lastJackpot = jm[1].trim().replace(/\s+/g,'');
     const el = document.getElementById('jackpot-value');
@@ -3106,6 +3102,7 @@ async function fetchLastDraw() {
     // Show latest draw (now saved in db)
     const latest = draws[draws.length - 1];
     renderLastDraw(latest, added, isNewer);
+    fetchJackpotOnly();
     // If database changed, auto-export JSON
     if (added > 0 || isNewer) {
       exportJSON();
@@ -3553,6 +3550,38 @@ showGrokSection();  // O chiama quando appropriato
    Token salvato in localStorage (solo sul dispositivo)
    File: storico-estrazioni-superenalotto.json
 ═══════════════════════════════════════════════ */
+
+// ── Fetch jackpot da risultati (senza anno) ──────────────────────────────
+async function fetchJackpotOnly() {
+  const el = document.getElementById('jackpot-value');
+  if (!el) return;
+  const url = 'https://www.superenalotto.com/risultati';
+  for (const proxyFn of PROXIES) {
+    try {
+      const html = await new Promise((resolve, reject) => {
+        const xhr = new XMLHttpRequest();
+        xhr.open('GET', proxyFn(url));
+        xhr.timeout = 10000;
+        xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
+        xhr.onerror = () => reject(new Error('XHR error'));
+        xhr.ontimeout = () => reject(new Error('timeout'));
+        xhr.send();
+      });
+      // Cerca <div class="next-jackpot"> o <span class="jackpot-value-sve">
+      const doc = new DOMParser().parseFromString(html, 'text/html');
+      const nj = doc.querySelector('.next-jackpot span, .jackpot-value-sve, [class*="next-jackpot"] span');
+      if (nj && nj.textContent.trim()) {
+        el.textContent = nj.textContent.trim();
+        return;
+      }
+      // Fallback: regex su testo grezzo
+      const m = html.match(/next-jackpot[\s\S]{0,200}?([\d][\d.,\s]+€)/i)
+             || html.match(/jackpot-value-sve[^>]*>([\d][\d.,\s]+€)/i);
+      if (m) { el.textContent = m[1].trim().replace(/\s+/g,''); return; }
+    } catch(e) { console.warn('jackpot err:', e.message); }
+  }
+}
+
 const GH_REPO  = 'delpinsky/Superenalotto';
 const GH_FILE  = 'storico-estrazioni-superenalotto.json';
 const GH_TOKEN_KEY = 'gh_pat_superenalotto';
@@ -3626,6 +3655,7 @@ async function ghDownload(silent) {
     document.getElementById('sistema-section').style.display = 'block';
     document.getElementById('results').style.display = 'block';
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
+    fetchJackpotOnly();
     return true;
   } catch(e) {
     if (!silent) ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');
@@ -3691,6 +3721,7 @@ window.addEventListener('load', async () => {
             document.getElementById('sistema-section').style.display = 'block';
             document.getElementById('results').style.display = 'block';
             ghSetStatus('✓ Database caricato automaticamente: ' + draws.length + ' estrazioni.', '#489a45');
+            fetchJackpotOnly();
           }
         }
       } catch(e) {}
