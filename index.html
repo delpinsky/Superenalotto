@@ -458,6 +458,14 @@
   </div>
 </div>
 
+<!-- Jackpot card -->
+<div class="card" id="jackpot-card" style="background:var(--header-bg);border-color:rgba(255,255,255,.15);text-align:center;padding:18px 24px;margin-bottom:20px">
+  <div style="display:flex;align-items:center;justify-content:center;gap:12px;flex-wrap:wrap">
+    <span style="font-size:15px;color:rgba(255,255,255,.9);font-weight:500;letter-spacing:.5px">il prossimo jackpot è:</span>
+    <span id="jackpot-value" style="font-size:26px;font-weight:700;color:#F5C842;font-family:'Bebas Neue',sans-serif;letter-spacing:2px">—</span>
+  </div>
+</div>
+
 <!-- Download card -->
 <div class="card" id="dl-card">
   <div class="card-title">⬇ Scarica Storico Estrazioni</div>
@@ -2987,6 +2995,9 @@ function recomputeConcorsi() {
 ═══════════════════════════════════════════════ */
 
 function showLastDrawFromDB() {
+  // Jackpot viene aggiornato da fetchLastDraw — se non ancora caricato mostra placeholder
+  const jel = document.getElementById('jackpot-value');
+  if (jel && jel.textContent === '—') jel.textContent = '— aggiorna per vedere';
   if (!draws.length) {
     setSt('err', 'Nessun dato nel database. Scarica prima lo storico.');
     return;
@@ -3021,6 +3032,17 @@ async function fetchLastDraw() {
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
         yearDraws = parsed;
+        // Estrai jackpot dall'HTML già scaricato
+        const jackpotIdx = html.toLowerCase().indexOf('jackpot');
+        console.log('DEBUG jackpot context:', jackpotIdx >= 0 ? html.substring(jackpotIdx, jackpotIdx+200) : 'NOT FOUND');
+        const jm = html.match(/prossimo jackpot[\s\S]{0,50}?(\d[\d\.]+(?:\.\d{3})*(?:,\d{2})?\s*\u20ac)/i)
+                || html.match(/jackpot[^€\d]{0,30}(\d[\d\.]+\s*\u20ac)/i)
+                || html.match(/(\d{2,3}(?:\.\d{3})+(?:,\d{2})?\s*\u20ac)/i);
+        console.log('DEBUG jackpot match:', jm ? jm[1] : 'NO MATCH');
+        if (jm) {
+          const el = document.getElementById('jackpot-value');
+          if (el) el.textContent = jm[1].trim().replace(/\s+/g,'');
+        }
         break; // proxy worked
       } catch(e) {
         console.warn('fetchLastDraw proxy fallito:', e.message);
@@ -3067,7 +3089,6 @@ async function fetchLastDraw() {
     // Show latest draw (now saved in db)
     const latest = draws[draws.length - 1];
     renderLastDraw(latest, added, isNewer);
-
     // If database changed, auto-export JSON
     if (added > 0 || isNewer) {
       exportJSON();
@@ -3776,6 +3797,8 @@ window.addEventListener('load', async () => {
   });
 })();
 </script>
+
+
 
 </body>
 </html>
