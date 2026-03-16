@@ -1060,6 +1060,14 @@ function parseYearPage(html, year) {
   results.sort((a, b) => a.date.localeCompare(b.date));
   results.forEach((dr, i) => dr.concorso = i + 1);
 
+  // Estrai jackpot dall'HTML (es. "135.500.000 €")
+  const jm = html.match(/prossimo jackpot[^\d\u20ac]{0,30}([\d][\d.,\s]+\u20ac)/i)
+          || html.match(/([\d]{2,3}(?:\.[\d]{3})+(?:,[\d]{2})?\s*\u20ac)/i);
+  if (jm) {
+    lastJackpot = jm[1].trim().replace(/\s+/g,'');
+    const el = document.getElementById('jackpot-value');
+    if (el) el.textContent = lastJackpot;
+  }
   return results;
 }
 
@@ -3268,32 +3276,6 @@ document.getElementById('btn-export').addEventListener('click', () => {
   setSt('ok', `✓ File JSON esportato: ${draws.length.toLocaleString('it')} estrazioni salvate.`);
 });
 
-// ── Fetch jackpot standalone ──────────────────────────────────────────
-async function fetchJackpotOnly() {
-  const el = document.getElementById('jackpot-value');
-  if (!el) return;
-  const thisYear = new Date().getFullYear();
-  const url = 'https://www.superenalotto.com/risultati/' + thisYear;
-  for (const proxyFn of PROXIES) {
-    try {
-      const res = await fetch(proxyFn(url), { signal: AbortSignal.timeout(15000) });
-      if (!res.ok) continue;
-      const html = await res.text();
-      // Log primi 300 char dopo 'jackpot' per debug
-      const dbgIdx = html.toLowerCase().indexOf('jackpot');
-      console.log('JACKPOT HTML:', dbgIdx >= 0 ? html.substring(dbgIdx, dbgIdx+300) : 'NOT FOUND');
-      // Log anche i numeri con € presenti nella pagina
-      const allEuro = html.match(/[\d][\d\.\s,]+\s*€/gi);
-      console.log('EURO found:', allEuro ? allEuro.slice(0,10) : 'NONE');
-      const jm = html.match(/prossimo jackpot[\s\S]{0,50}?(\d[\d\.]+(?:\.\d{3})*(?:,\d{2})?\s*\u20ac)/i)
-              || html.match(/jackpot[^\u20ac\d]{0,30}(\d[\d\.]+\s*\u20ac)/i);
-      if (jm) { el.textContent = jm[1].trim().replace(/\s+/g,''); return; }
-      // Se non trovato, mostra snippet per debug
-      el.textContent = 'dbg:' + (dbgIdx >= 0 ? html.substring(dbgIdx, dbgIdx+40) : 'NO-JP');
-      return;
-    } catch(e) { console.warn('jackpot err:', e.message); }
-  }
-}
 
 // ── Aggiorna pillole anni dopo caricamento database ──
 function updateYearPills() {
@@ -3622,7 +3604,6 @@ async function ghDownload(silent) {
     document.getElementById('sistema-section').style.display = 'block';
     document.getElementById('results').style.display = 'block';
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
-    fetchJackpotOnly(); // aggiorna jackpot dopo caricamento GitHub
     return true;
   } catch(e) {
     if (!silent) ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');
@@ -3683,7 +3664,6 @@ window.addEventListener('load', async () => {
             document.getElementById('sistema-section').style.display = 'block';
             document.getElementById('results').style.display = 'block';
             ghSetStatus('✓ Database caricato automaticamente: ' + draws.length + ' estrazioni.', '#489a45');
-            fetchJackpotOnly();
           }
         }
       } catch(e) {}
