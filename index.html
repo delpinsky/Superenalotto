@@ -3022,7 +3022,6 @@ function showLastDrawFromDB() {
 }
 
 async function fetchLastDraw() {
-  console.log('fetchLastDraw START');
   const btn = document.getElementById('btn-last');
   btn.disabled = true;
   btn.textContent = '⏳ Aggiornamento in corso…';
@@ -3036,7 +3035,6 @@ async function fetchLastDraw() {
     for (const proxyFn of PROXIES) {
       try {
         const url  = proxyFn(SRC_FRESH(thisYear));
-        console.log('Trying proxy:', url.substring(0,60));
         // Usa XHR invece di fetch per bypassare estensioni Chrome
         const html = await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
@@ -3047,10 +3045,8 @@ async function fetchLastDraw() {
           xhr.ontimeout = () => reject(new Error('signal timed out'));
           xhr.send();
         });
-        console.log('HTML len:', html.length, 'has estrazione:', html.includes('estrazione-'));
         if (!html.includes('estrazione-')) throw new Error('Pagina vuota o proxy cache');
         const parsed = parseYearPage(html, thisYear);
-        console.log('Parsed draws:', parsed.length);
         if (!parsed.length) throw new Error('Nessun dato parsato');
         yearDraws = parsed;
         // Estrai jackpot dall'HTML già scaricato
