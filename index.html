@@ -972,14 +972,16 @@ const YEARS      = Array.from({length: THIS_YEAR - FIRST_YEAR + 1}, (_, i) => FI
 // Cache-busting is embedded in the PROXY URL itself (not the target)
 // so the proxy CDN treats each request as unique and never serves stale cache
 const PROXIES = [
-  // allorigins: cache-bust via its own callback param
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`,
-  // corsproxy.io
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  // codetabs
+  // codetabs — 5 req/sec, affidabile
   url => `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(url)}`,
-  // htmldriven (another public proxy)
-  url => `https://cors-anywhere.herokuapp.com/${url}`,
+  // cors.sh — alternativa cors-anywhere
+  url => `https://proxy.cors.sh/${url}`,
+  // cors.lol
+  url => `https://api.cors.lol/?url=${encodeURIComponent(url)}`,
+  // allorigins fallback
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}&_=${Date.now()}`,
+  // corsproxy.io fallback
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
 ];
 const SRC = year => `https://www.superenalotto.com/risultati/${year}`;
 const SRC_FRESH = year => SRC(year); // timestamp is now in the proxy URL, not here
