@@ -1063,8 +1063,11 @@ function parseYearPage(html, year) {
   results.forEach((dr, i) => dr.concorso = i + 1);
 
   // Estrai jackpot dall'HTML (es. "135.500.000 €")
+  const jpIdx = html.toLowerCase().indexOf('jackpot');
+  console.log('JACKPOT ctx:', jpIdx >= 0 ? html.substring(jpIdx, jpIdx+150) : 'NOT FOUND');
   const jm = html.match(/prossimo jackpot[^\d\u20ac]{0,30}([\d][\d.,\s]+\u20ac)/i)
           || html.match(/([\d]{2,3}(?:\.[\d]{3})+(?:,[\d]{2})?\s*\u20ac)/i);
+  console.log('JACKPOT match:', jm ? jm[1] : 'NO MATCH');
   if (jm) {
     lastJackpot = jm[1].trim().replace(/\s+/g,'');
     const el = document.getElementById('jackpot-value');
