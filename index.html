@@ -3037,15 +3037,18 @@ async function fetchLastDraw() {
       try {
         const url  = proxyFn(SRC_FRESH(thisYear));
         console.log('Trying proxy:', url.substring(0,60));
-        const resp = await fetch(url, { signal: AbortSignal.timeout(8000) });
-        console.log('Proxy response:', resp.status, resp.ok);
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        // Usa arrayBuffer per evitare interferenze delle estensioni Chrome con resp.text()
-        const buf = await resp.arrayBuffer();
-        const html = new TextDecoder('utf-8').decode(buf);
+        // Usa XHR invece di fetch per bypassare estensioni Chrome
+        const html = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url);
+          xhr.timeout = 8000;
+          xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
+          xhr.onerror = () => reject(new Error('XHR error'));
+          xhr.ontimeout = () => reject(new Error('signal timed out'));
+          xhr.send();
+        });
         console.log('HTML len:', html.length, 'has estrazione:', html.includes('estrazione-'));
         if (!html.includes('estrazione-')) throw new Error('Pagina vuota o proxy cache');
-        console.log('Calling parseYearPage...');
         const parsed = parseYearPage(html, thisYear);
         console.log('Parsed draws:', parsed.length);
         if (!parsed.length) throw new Error('Nessun dato parsato');
