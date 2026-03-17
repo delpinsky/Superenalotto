@@ -2804,7 +2804,7 @@ function generateClaudePrevisione(ctx, hint) {
     const re2 = /\b(\d+)\s+(cald[oi]|frecuent[ei]|frequent[ei]|pi[uù]\s+uscit[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|casual[ei]|random)\b/gi;
 
     // Master regex combining both patterns with period capture
-    const reMaster = /(\d+|un[oa]?)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(?:completamente\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddo|freddi|in\s+ritard[oi]|ritardatari[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])((?:\s+dell[ae]?\s+ultim[ei]\s+\d+\s+(?:estrazioni|mesi?|anni?|concorsi))?[^,;]*?)(?=\s*(?:e\s+)?(?:\d+|un[oa]?)\s+numer|\s*[,;.]|$)/gi;
+    const reMaster = /(\d+|un[oa]?|due|tre|quattro|cinque|sei)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(?:completamente\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddo|freddi|in\s+ritard[oi]|ritardatari[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])((?:\s+dell[ae]?\s+ultim[ei]\s+\d+\s+(?:estrazioni|mesi?|anni?|concorsi))?[^,;]*?)(?=\s*(?:e\s+)?(?:\d+|un[oa]?|due|tre|quattro|cinque|sei)\s+numer|\s*[,;.]|$)/gi;
 
     // Gestisci 'gli altri (N)? numeri tipo' come slot remainder
     const reAltri = /gli\s+altri(?:\s+(\d+))?\s+(?:numer[oi]\s+)?(casual[ei]|random|cald[oi]|freddi?|bilanciat[oi]|frequent[ei])/gi;
@@ -2822,7 +2822,8 @@ function generateClaudePrevisione(ctx, hint) {
     let m;
     while ((m = reMaster.exec(text)) !== null) {
       const countRaw = m[1].toLowerCase();
-      const count    = (countRaw === 'un' || countRaw === 'una' || countRaw === 'uno') ? 1 : parseInt(countRaw);
+      const numWords = {un:1,una:1,uno:1,due:2,tre:3,quattro:4,cinque:5,sei:6};
+      const count    = numWords[countRaw] !== undefined ? numWords[countRaw] : parseInt(countRaw);
       const typeRaw  = m[2].toLowerCase().trim();
       const afterCtx = (m[3] || '').toLowerCase();
 
@@ -2964,7 +2965,7 @@ function generateClaudePrevisione(ctx, hint) {
     : 'ultimi '+Math.round(globalPeriod/12)+' anni';
 
   const strategyTexts = {
-    hot:      'Ho puntato sui numeri più caldi del ' + periodLabel + ': '
+    hot:      'Ho puntato sui numeri più caldi ' + (periodLabel.startsWith('ultime') ? 'delle ' : periodLabel.startsWith('ultimo') ? "dell'" : 'del ') + periodLabel + ': '
               + st.byFreq[0] + ', ' + st.byFreq[1] + ' e ' + st.byFreq[2]
               + ' dominano le frequenze. Li ho affiancati a due bilanciati e un numero in ritardo.',
     cold:     'Ho giocato contro corrente sul ' + periodLabel + ': '
@@ -3718,7 +3719,7 @@ function generateClaudePrevisione(ctx, hint) {
     const re2 = /\b(\d+)\s+(cald[oi]|frecuent[ei]|frequent[ei]|pi[uù]\s+uscit[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|casual[ei]|random)\b/gi;
 
     // Master regex combining both patterns with period capture
-    const reMaster = /(\d+|un[oa]?)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(?:completamente\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddo|freddi|in\s+ritard[oi]|ritardatari[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])((?:\s+dell[ae]?\s+ultim[ei]\s+\d+\s+(?:estrazioni|mesi?|anni?|concorsi))?[^,;]*?)(?=\s*(?:e\s+)?(?:\d+|un[oa]?)\s+numer|\s*[,;.]|$)/gi;
+    const reMaster = /(\d+|un[oa]?|due|tre|quattro|cinque|sei)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(?:completamente\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddo|freddi|in\s+ritard[oi]|ritardatari[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])((?:\s+dell[ae]?\s+ultim[ei]\s+\d+\s+(?:estrazioni|mesi?|anni?|concorsi))?[^,;]*?)(?=\s*(?:e\s+)?(?:\d+|un[oa]?|due|tre|quattro|cinque|sei)\s+numer|\s*[,;.]|$)/gi;
 
     // Gestisci 'gli altri (N)? numeri tipo' come slot remainder
     const reAltri = /gli\s+altri(?:\s+(\d+))?\s+(?:numer[oi]\s+)?(casual[ei]|random|cald[oi]|freddi?|bilanciat[oi]|frequent[ei])/gi;
@@ -3736,7 +3737,8 @@ function generateClaudePrevisione(ctx, hint) {
     let m;
     while ((m = reMaster.exec(text)) !== null) {
       const countRaw = m[1].toLowerCase();
-      const count    = (countRaw === 'un' || countRaw === 'una' || countRaw === 'uno') ? 1 : parseInt(countRaw);
+      const numWords = {un:1,una:1,uno:1,due:2,tre:3,quattro:4,cinque:5,sei:6};
+      const count    = numWords[countRaw] !== undefined ? numWords[countRaw] : parseInt(countRaw);
       const typeRaw  = m[2].toLowerCase().trim();
       const afterCtx = (m[3] || '').toLowerCase();
 
@@ -3878,7 +3880,7 @@ function generateClaudePrevisione(ctx, hint) {
     : 'ultimi '+Math.round(globalPeriod/12)+' anni';
 
   const strategyTexts = {
-    hot:      'Ho puntato sui numeri più caldi del ' + periodLabel + ': '
+    hot:      'Ho puntato sui numeri più caldi ' + (periodLabel.startsWith('ultime') ? 'delle ' : periodLabel.startsWith('ultimo') ? "dell'" : 'del ') + periodLabel + ': '
               + st.byFreq[0] + ', ' + st.byFreq[1] + ' e ' + st.byFreq[2]
               + ' dominano le frequenze. Li ho affiancati a due bilanciati e un numero in ritardo.',
     cold:     'Ho giocato contro corrente sul ' + periodLabel + ': '
