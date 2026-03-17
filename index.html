@@ -949,6 +949,90 @@
 </div>
 </div>
 
+
+<!-- PREVISIONI DI CLAUDE -->
+<div id="claude-section" style="display:none">
+  <div class="card" style="border-color:rgba(155,89,182,.3);background:linear-gradient(135deg,var(--surface) 80%,rgba(155,89,182,.06))">
+    <div class="card-title" style="color:var(--purple)">🤖 Previsioni di Claude</div>
+    <p style="font-size:13px;color:var(--muted);margin-bottom:20px;line-height:1.7">
+      Chiedi a Claude una previsione personale sulla prossima estrazione. Analizzerò le statistiche
+      del tuo database e ti darò <strong style="color:var(--text)">la mia scelta ragionata</strong> — con una spiegazione onesta su cosa mi ha convinto.
+      <br><span style="font-size:12px;color:#f0a500;margin-top:6px;display:block">⚠ È un gioco statistico e narrativo, non una previsione reale. I numeri del Superenalotto sono completamente casuali.</span>
+    </p>
+
+    <div style="display:flex;gap:10px;align-items:flex-end;flex-wrap:wrap;margin-bottom:20px">
+      <div style="flex:1;min-width:220px">
+        <label style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:8px">
+          Vuoi dirmi qualcosa? (opzionale)
+        </label>
+        <input id="claude-hint" class="search-input" type="text"
+          placeholder='es. "punta sui freddi" oppure "sorprendimi"'
+          style="width:100%">
+      </div>
+      <button class="btn" id="btn-claude"
+        style="background:linear-gradient(135deg,rgba(155,89,182,.3),rgba(155,89,182,.15));
+               border:1.5px solid var(--purple);color:var(--purple);
+               box-shadow:0 0 18px rgba(155,89,182,.2);white-space:nowrap">
+        🤖 Chiedi a Claude
+      </button>
+    </div>
+
+    <div id="claude-result" style="display:none">
+      <!-- balls row -->
+      <div style="background:var(--surface2);border:1px solid rgba(155,89,182,.25);border-radius:14px;padding:22px 24px;margin-bottom:16px">
+        <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:14px">
+          La mia schedina per la prossima estrazione
+        </div>
+        <div class="slots-row" id="claude-balls"></div>
+      </div>
+      <!-- reasoning -->
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:22px 24px">
+        <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px">
+          Il mio ragionamento
+        </div>
+        <div id="claude-reasoning" style="font-size:14px;line-height:1.8;color:var(--text)"></div>
+      </div>
+      <button class="btn btn-ghost" id="btn-claude-again" style="margin-top:16px">🤖 Chiedi di nuovo</button>
+    </div>
+    <div id="claude-loading" style="display:none;padding:30px 0;text-align:center;color:var(--muted);font-size:14px">
+      <span style="animation:blink 1.4s ease-in-out infinite;display:inline-block">⏳ Claude sta analizzando le statistiche…</span>
+    </div>
+  </div>
+</div>
+
+<div class="card" id="grok-card" style="display:none">
+  <div class="card-title">🚀 Previsioni di Grok</div>
+  <p class="forecast-intro">
+    Chiedi a Grok una previsione basata sulle sue "sensazioni" cosmiche. Inserisci un suggerimento opzionale (es. "freddi", "caldi", "xAI style") o lascia vuoto per un mix casuale.
+    <span class="warn">⚠️ Queste sono solo idee divertenti – il Superenalotto è puro caso!</span>
+  </p>
+  <div class="search-row">
+    <div class="search-field">
+      <label>Suggerimento (opzionale)</label>
+      <input type="text" id="grok-hint" class="search-input" placeholder="es. 'numeri cosmici' o vuoto">
+    </div>
+    <button class="btn btn-gold btn-forecast" id="btn-grok">Genera Previsione</button>
+  </div>
+  <div id="grok-loading" style="display:none; text-align:center; color:var(--gold); padding:20px;">
+    <span class="dot dot-wait"></span> Grok sta consultando l'universo...
+  </div>
+  <div id="grok-result" style="display:none">
+  <div style="background:var(--surface2);border:1px solid rgba(155,89,182,.25);border-radius:14px;padding:22px 24px;margin-bottom:16px">
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:14px">
+      La mia schedina per la prossima estrazione
+    </div>
+    <div class="slots-row" id="grok-balls"></div>
+  </div>
+    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:22px 24px;margin-top:16px">
+    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px">Il mio ragionamento</div>
+    <div id="grok-reasoning" style="font-size:14px;line-height:1.8;color:var(--text)"></div>
+  </div>
+
+  <p style="text-align:left; margin-top:16px">
+    <button class="btn btn-ghost" id="btn-grok-again">🤖 CHIEDI DI NUOVO</button>
+  </p>
+</div>
+</div>
 </div><!-- /wrap -->
 <footer style="text-align:center;padding:24px 20px 32px;font-size:12px;line-height:2;color:var(--muted)">
   <div>Dati © superenalotto.com · Solo uso statistico · Il gioco può causare dipendenza patologica</div>
@@ -1934,6 +2018,7 @@ document.getElementById('search-by-date').addEventListener('input', () => {
 function showForecastSection() {
   document.getElementById('forecast-section').style.display = 'block';
   showClaudeSection();
+  showGrokSection();
   if (window.showSistema) window.showSistema();
 }
 
@@ -2715,11 +2800,12 @@ function generateClaudePrevisione(ctx, hint) {
     const re2 = /\b(\d+)\s+(cald[oi]|frecuent[ei]|frequent[ei]|pi[uù]\s+uscit[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|casual[ei]|random)\b/gi;
 
     // Master regex combining both patterns with period capture
-    const reMaster = /(\d+)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])([^,;.\d]*)/gi;
+    const reMaster = /(\d+|un[oa]?)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(?:completamente\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddi?|freddo|in\s+ritard[oi]|ritardatari[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])([^,;.\d]*)/gi;
 
     let m;
     while ((m = reMaster.exec(text)) !== null) {
-      const count    = parseInt(m[1]);
+      const countRaw = m[1].toLowerCase();
+      const count    = (countRaw === 'un' || countRaw === 'una' || countRaw === 'uno') ? 1 : parseInt(countRaw);
       const typeRaw  = m[2].toLowerCase().trim();
       const afterCtx = (m[3] || '').toLowerCase();
 
@@ -3324,6 +3410,7 @@ document.getElementById('json-import-input').addEventListener('change', e => {
       if (missing) document.getElementById('btn-resume').style.display = 'block';
 
       updateOverview();
+      if (typeof showForecastSection === 'function') showForecastSection();
       updateGoBtn();
       // Refresh current-year pill with count from imported data
       const _cyCount = draws.filter(d => d.date.startsWith(THIS_YEAR + '')).length;
@@ -3509,6 +3596,15 @@ async function askGrok() {
 
 // Wire up eventi
 document.getElementById('btn-grok').addEventListener('click', askGrok);
+document.addEventListener('click', e => {
+  if (e.target && e.target.id === 'btn-grok-again') {
+    document.getElementById('grok-result').style.display = 'none';
+    askGrok();
+  }
+});
+
+// Mostra sezione quando db pronto (aggiungi a updateGoBtn o simile)
+showGrokSection();  // O chiama quando appropriato
 document.getElementById('grok-hint').addEventListener('keydown', e => { if(e.key==='Enter') askGrok(); });
 document.addEventListener('click', e => {
   if (e.target && e.target.id === 'btn-grok-again') {
@@ -3519,6 +3615,806 @@ document.addEventListener('click', e => {
 
 // Mostra sezione quando db pronto (aggiungi a updateGoBtn o simile)
 showGrokSection();  // O chiama quando appropriato
+
+/* ═══════════════════════════════════════════════
+   PREVISIONI DI CLAUDE (Anthropic API)
+═══════════════════════════════════════════════ */
+
+/* Generate a Claude-style previsione locally from stats — no network needed */
+function generateClaudePrevisione(ctx, hint) {
+  const hintLow = (hint || '').toLowerCase();
+  const total = draws.length;
+
+  // ── Build stats for a given subset of draws ──────────────────────────
+  function buildStats(subset) {
+    const n = subset.length || 1;
+    const freq = new Array(91).fill(0);
+    subset.forEach(dr => { dr.nums.forEach(x => freq[x]++); if (dr.jolly) freq[dr.jolly]++; });
+    const lastSeen = new Array(91).fill(-1);
+    subset.forEach((dr,i) => { dr.nums.forEach(x => lastSeen[x]=i); if(dr.jolly) lastSeen[dr.jolly]=i; });
+    const delay = x => lastSeen[x]===-1 ? n : (n-1-lastSeen[x]);
+    const maxF = Math.max(...freq.slice(1)) || 1;
+    const balScore = x => (freq[x]/maxF)*0.45 + (delay(x)/n)*0.55;
+    const nums = Array.from({length:90},(_,i)=>i+1);
+    const byFreq    = nums.slice().sort((a,b)=>freq[b]-freq[a]);
+    const byDelay   = nums.slice().sort((a,b)=>delay(b)-delay(a));
+    const byBalance = nums.slice().sort((a,b)=>balScore(b)-balScore(a));
+    // Pairs
+    const pc = {};
+    subset.forEach(dr=>{ const ns=dr.nums; for(let i=0;i<ns.length;i++) for(let j=i+1;j<ns.length;j++){ const k=ns[i]+'-'+ns[j]; pc[k]=(pc[k]||0)+1; } });
+    const topPairNums = new Set();
+    Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k])=>k.split('-').map(Number).forEach(x=>topPairNums.add(x)));
+    return { freq, delay, byFreq, byDelay, byBalance, topPairNums, size: n };
+  }
+
+  // ── Subset for a period (months=0 → full history) ────────────────────
+  function subsetForPeriod(months) {
+    if (!months) return draws;
+    const cut = new Date(); cut.setMonth(cut.getMonth() - months);
+    return draws.filter(d => d.date >= cut.toISOString().slice(0,10));
+  }
+
+  // ── Parse period from text ────────────────────────────────────────────
+  function parsePeriod(text) {
+    if (/ultim[oi]\s*(mese|30\s*giorni)/i.test(text))  return 1;
+    if (/ultim[oi]\s*([23])\s*mes[ei]/i.test(text))    return parseInt(text.match(/([23])\s*mes/i)[1]);
+    if (/ultim[oi]\s*6\s*mes[ei]/i.test(text))         return 6;
+    if (/ultim[oi]\s*(anno|12\s*mes[ei])/i.test(text)) return 12;
+    if (/ultim[oi]\s*(\d+)\s*ann[io]/i.test(text))     return parseInt(text.match(/(\d+)\s*ann[io]/i)[1]) * 12;
+    if (/ultim[oi]\s*(\d+)\s*mes[ei]/i.test(text))     return parseInt(text.match(/(\d+)\s*mes[ei]/i)[1]);
+    return 0;
+  }
+
+  // ── Parse structured slot instructions ───────────────────────────────
+  // Patterns: "N numero/i [tipo] [periodo]"
+  // Also handles: "N tra i più usciti / più frequenti / ecc."
+  function parseSlots(text) {
+    const slots = [];
+    // Extended regex — captures: count, type keywords, optional period context after
+    const re = /(\d+)\s+numer[oi]\s+(tra\s+i\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|in\s+coppie?|in\s+terzin[ae])|(\d+)\s+(cald[oi]|freddi?|freddo|frequent[ei]|casual[ei]|bilanciat[oi])/gi;
+    // Also match "1 casuale", "1 freddo", "4 caldi" style (without "numero/i")
+    const re2 = /\b(\d+)\s+(cald[oi]|frecuent[ei]|frequent[ei]|pi[uù]\s+uscit[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|casual[ei]|random)\b/gi;
+
+    // Master regex combining both patterns with period capture
+    const reMaster = /(\d+)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])([^,;.\d]*)/gi;
+
+    let m;
+    while ((m = reMaster.exec(text)) !== null) {
+      const count    = parseInt(m[1]);
+      const typeRaw  = m[2].toLowerCase().trim();
+      const afterCtx = (m[3] || '').toLowerCase();
+
+      let type;
+      if (/cald|pi.{0,4}uscit|pi.{0,4}frequent|pi.{0,4}volt/.test(typeRaw)) type = 'hot';
+      else if (/freddo|freddi|ritard|rar/.test(typeRaw))                       type = 'cold';
+      else if (/bilanciat/.test(typeRaw))                                       type = 'balanced';
+      else if (/caso|casual|random/.test(typeRaw))                              type = 'random';
+      else if (/coppi|terzin/.test(typeRaw))                                    type = 'pairs';
+      else                                                                       type = 'balanced';
+
+      // Period: check the text after the type keyword, plus the full hint
+      const months = parsePeriod(afterCtx) || parsePeriod(text);
+      slots.push({ count, type, months });
+    }
+    return slots;
+  }
+
+  // ── Execute picks from a sorted list ─────────────────────────────────
+  const picked = new Set();
+  const pickFrom = (sortedList, n) => {
+    const res = [];
+    for (const x of sortedList) {
+      if (!picked.has(x)) { res.push(x); picked.add(x); if (res.length >= n) break; }
+    }
+    return res;
+  };
+
+  // ── Detect if hint is structured ─────────────────────────────────────
+  const slots = parseSlots(hintLow);
+  const totalRequested = slots.reduce((s, sl) => s + sl.count, 0);
+  const isStructured = slots.length >= 2 || (slots.length === 1 && totalRequested >= 3);
+
+  // ════════════════════════════════════════════════════════════════════
+  //  STRUCTURED MODE — execute slot instructions literally
+  // ════════════════════════════════════════════════════════════════════
+  if (isStructured) {
+    let main6 = [];
+    let reasonParts = [];
+
+    for (const sl of slots) {
+      if (main6.length >= 6) break;
+      const need   = Math.min(sl.count, 6 - main6.length);
+      const subset = subsetForPeriod(sl.months);
+      const st     = buildStats(subset);
+
+      const periodLabel = sl.months === 0  ? 'storico completo'
+        : sl.months === 1  ? 'ultimo mese'
+        : sl.months < 12   ? 'ultimi ' + sl.months + ' mesi'
+        : sl.months === 12 ? 'ultimo anno'
+        : 'ultimi ' + Math.round(sl.months/12) + ' anni';
+
+      let list, typeLabel;
+      switch (sl.type) {
+        case 'hot':      list = st.byFreq;    typeLabel = 'più usciti';    break;
+        case 'cold':     list = st.byDelay;   typeLabel = 'freddi';        break;
+        case 'balanced': list = st.byBalance; typeLabel = 'bilanciati';    break;
+        case 'random':
+          list = st.byBalance.slice().sort(() => Math.random() - 0.48);
+          typeLabel = 'casuali'; break;
+        case 'pairs':
+          list = [...st.topPairNums, ...st.byBalance].filter((v,i,a)=>a.indexOf(v)===i);
+          typeLabel = 'in coppia'; break;
+        default: list = st.byBalance; typeLabel = 'bilanciati';
+      }
+
+      const chosen = pickFrom(list, need);
+      main6.push(...chosen);
+
+      const details = chosen.map(n => {
+        const f_ = st.freq[n], d_ = st.delay(n);
+        return n + ' (freq=' + f_ + ', ritardo=' + d_ + ')';
+      }).join(', ');
+      reasonParts.push('• ' + need + (need===1?' numero ':' numeri ') + typeLabel
+        + ' [' + periodLabel + ']: ' + details);
+    }
+
+    // Fill remaining slots if hint total < 6
+    if (main6.length < 6) {
+      const st0 = buildStats(draws);
+      const filler = pickFrom(st0.byBalance, 6 - main6.length);
+      main6.push(...filler);
+      if (filler.length)
+        reasonParts.push('• ' + filler.length + ' bilanciati aggiuntivi (storico): ' + filler.join(', '));
+    }
+
+    main6 = main6.slice(0,6).sort((a,b)=>a-b);
+
+    const st0 = buildStats(draws);
+    const jollyN = st0.byDelay.find(n => !picked.has(n));
+    picked.add(jollyN);
+    const ssN = st0.byFreq.find(n => !picked.has(n));
+
+    const latestDate = fmtD(draws[draws.length-1].date);
+    const reasoning = 'Ho seguito le tue istruzioni alla lettera:\n'
+      + reasonParts.join('\n')
+      + '\n\nJolly: ' + jollyN + ' (assente da ' + st0.delay(jollyN) + ' estrazioni)'
+      + ' · SuperStar: ' + ssN + ' (il più frequente di recente).'
+      + '\n\nUltima estrazione: ' + latestDate
+      + '. I numeri del Superenalotto sono casuali — statistica narrativa, non profezia! 🍀';
+
+    return { nums: main6, jolly: jollyN, ss: ssN, reasoning };
+  }
+
+  // ════════════════════════════════════════════════════════════════════
+  //  CLASSIC MODE — single-keyword strategy
+  // ════════════════════════════════════════════════════════════════════
+  const globalPeriod = parsePeriod(hintLow);
+  const subset  = subsetForPeriod(globalPeriod);
+  const st      = buildStats(subset);
+  const st0     = buildStats(draws);
+
+  let strategy, pool;
+  if (/fred|ritard|rar/.test(hintLow))                            { strategy='cold';     pool=st.byDelay; }
+  else if (/cald|frequent|hot|pi.{0,4}uscit/.test(hintLow))       { strategy='hot';      pool=st.byFreq; }
+  else if (/coppi|insiem/.test(hintLow))                           { strategy='pairs';    pool=[...st.topPairNums,...st.byBalance].filter((v,i,a)=>a.indexOf(v)===i); }
+  else if (/sorpren|casual|random/.test(hintLow))                  { strategy='random';   pool=st.byBalance.slice().sort(()=>Math.random()-0.48); }
+  else                                                              { strategy='balanced'; pool=st.byBalance; }
+
+  let main6=[];
+  if (strategy==='balanced'||strategy==='random') main6=pickFrom(pool,6);
+  else if (strategy==='hot')   main6=[...pickFrom(st.byFreq,3),...pickFrom(st.byBalance,2),...pickFrom(st.byDelay,1)];
+  else if (strategy==='cold')  main6=[...pickFrom(st.byDelay,3),...pickFrom(st.byBalance,2),...pickFrom(st.byFreq,1)];
+  else if (strategy==='pairs') main6=[...pickFrom(pool,4),...pickFrom(st.byBalance,2)];
+  main6=main6.slice(0,6).sort((a,b)=>a-b);
+
+  const jollyN = st0.byDelay.find(n => !picked.has(n));
+  picked.add(jollyN);
+  const ssN = st0.byFreq.find(n => !picked.has(n));
+  const latestDate = fmtD(draws[draws.length-1].date);
+
+  const periodLabel = globalPeriod===0 ? 'storico completo'
+    : globalPeriod===1 ? 'ultimo mese'
+    : globalPeriod<12  ? 'ultimi '+globalPeriod+' mesi'
+    : globalPeriod===12? 'ultimo anno'
+    : 'ultimi '+Math.round(globalPeriod/12)+' anni';
+
+  const strategyTexts = {
+    hot:      'Ho puntato sui numeri più caldi del ' + periodLabel + ': '
+              + st.byFreq[0] + ', ' + st.byFreq[1] + ' e ' + st.byFreq[2]
+              + ' dominano le frequenze. Li ho affiancati a due bilanciati e un numero in ritardo.',
+    cold:     'Ho giocato contro corrente sul ' + periodLabel + ': '
+              + st.byDelay[0] + ', ' + st.byDelay[1] + ' e ' + st.byDelay[2]
+              + ' sono i più in ritardo. Il ' + st.byDelay[0]
+              + ' manca da ' + st.delay(st.byDelay[0]) + ' estrazioni.',
+    pairs:    'Ho costruito la schedina attorno alle coppie più affiatate nel ' + periodLabel
+              + '. Questi numeri tendono a uscire insieme.',
+    random:   'Hai detto "sorprendimi": ho mescolato il ranking bilanciato con un pizzico di caos controllato.',
+    balanced: 'Formula preferita sul ' + periodLabel + ': frequenza (45%) + ritardo (55%). '
+              + 'I numeri ' + main6[0] + ', ' + main6[2] + ' e ' + main6[4]
+              + ' hanno il miglior equilibrio.'
+  };
+
+  const reasoning = strategyTexts[strategy]
+    + ' Jolly: ' + jollyN + ' (assente da ' + st0.delay(jollyN) + ' estrazioni).'
+    + ' SuperStar: ' + ssN + ' (più frequente di recente).'
+    + ' Ultima estrazione: ' + latestDate
+    + '. Statistica narrativa, non profezia! 🍀';
+
+  return { nums: main6, jolly: jollyN, ss: ssN, reasoning };
+}
+
+function showClaudeSection() {
+  document.getElementById('claude-section').style.display = 'block';
+}
+
+/* Build a rich stats summary to send to Claude */
+function buildStatsContext() {
+  if (!draws.length) return null;
+
+  const total = draws.length;
+  const last  = draws[draws.length - 1];
+
+  // Global frequency top/bottom 10
+  const freqSorted = Array.from({length:90},(_,i)=>({n:i+1,f:freq[i+1]})).sort((a,b)=>b.f-a.f);
+  const hot10  = freqSorted.slice(0,10).map(x=>`${x.n}(${x.f}×)`).join(', ');
+  const cold10 = freqSorted.slice(-10).map(x=>`${x.n}(${x.f}×)`).join(', ');
+
+  // Delay (draws since last appearance) for each number
+  const lastSeen = new Array(91).fill(-1);
+  draws.forEach((dr,i) => { dr.nums.forEach(n=>lastSeen[n]=i); if(dr.jolly) lastSeen[dr.jolly]=i; });
+  const delaySorted = Array.from({length:90},(_,i)=>{
+    const n=i+1, gap=lastSeen[n]===-1?total:(total-1-lastSeen[n]);
+    return {n,gap,lastDate:lastSeen[n]===-1?'mai':draws[lastSeen[n]].date};
+  }).sort((a,b)=>b.gap-a.gap);
+  const overdue5 = delaySorted.slice(0,5).map(x=>`${x.n}(${x.gap} estr. fa, ultimo: ${x.lastDate})`).join(', ');
+
+  // Last 10 draws
+  const last10 = draws.slice(-10).map(d => d.date + ': [' + d.nums.join(',') + '] J:' + d.jolly).join('\n');
+
+  // Top pairs in last 3 months
+  const cutoff3m = new Date(); cutoff3m.setMonth(cutoff3m.getMonth()-3);
+  const cut3str  = cutoff3m.toISOString().slice(0,10);
+  const recent   = draws.filter(d=>d.date>=cut3str);
+  const pairCount3m = {};
+  recent.forEach(dr=>{ const n=dr.nums; for(let i=0;i<n.length;i++) for(let j=i+1;j<n.length;j++) { const k=`${n[i]}-${n[j]}`; pairCount3m[k]=(pairCount3m[k]||0)+1; } });
+  const topPairs3m = Object.entries(pairCount3m).sort((a,b)=>b[1]-a[1]).slice(0,5).map(([k,v])=>`${k}(${v}×)`).join(', ');
+
+  return {total, lastDate: last.date, last10, hot10, cold10, overdue5, topPairs3m, recentCount: recent.length};
+}
+
+async function askClaude() {
+  const hint    = document.getElementById('claude-hint').value.trim();
+  const ctx     = buildStatsContext();
+  if (!ctx) { alert('Carica prima il database!'); return; }
+
+  document.getElementById('claude-result').style.display  = 'none';
+  document.getElementById('claude-loading').style.display = 'none';
+  document.getElementById('btn-claude').disabled = true;
+
+  try {
+    const parsed = generateClaudePrevisione(ctx, hint);
+    if (!Array.isArray(parsed.nums) || parsed.nums.length !== 6) throw new Error('Dati non validi');
+
+    // Render balls
+    const container = document.getElementById('claude-balls');
+    container.innerHTML = '';
+    const makeSl = (num, cls, lbl) => {
+      const w = document.createElement('div'); w.style.cssText = 'display:flex;flex-direction:column;align-items:center';
+      const sl = document.createElement('div'); sl.className = `slot filled ${cls}`; sl.style.cursor='default';
+      const lb = document.createElement('span'); lb.className='lbl'; lb.textContent=lbl||'';
+      sl.appendChild(document.createTextNode(num)); sl.appendChild(lb); w.appendChild(sl); return w;
+    };
+    parsed.nums.sort((a,b)=>a-b).forEach(n => container.appendChild(makeSl(n,'','')));
+    const div = document.createElement('div'); div.className='div-slot'; container.appendChild(div);
+    if (parsed.jolly) container.appendChild(makeSl(parsed.jolly,'is-j','Jolly'));
+    if (parsed.ss)    container.appendChild(makeSl(parsed.ss,   'is-s','SS'));
+
+    // Render reasoning
+    document.getElementById('claude-reasoning').textContent = parsed.reasoning;
+
+    document.getElementById('claude-loading').style.display = 'none';
+    document.getElementById('claude-result').style.display  = 'block';
+
+  } catch(e) {
+    document.getElementById('claude-loading').style.display = 'none';
+    document.getElementById('claude-reasoning').textContent = 'Errore nella risposta di Claude: ' + e.message;
+    document.getElementById('claude-result').style.display  = 'block';
+  }
+
+  document.getElementById('btn-claude').disabled = false;
+}
+
+document.getElementById('btn-claude').addEventListener('click', askClaude);
+document.getElementById('claude-hint').addEventListener('keydown', e => { if(e.key==='Enter') askClaude(); });
+document.addEventListener('click', e => {
+  if (e.target && e.target.id === 'btn-claude-again') {
+    document.getElementById('claude-result').style.display = 'none';
+    askClaude();
+  }
+});
+
+/* ═══════════════════════════════════════════════
+   UTILS
+═══════════════════════════════════════════════ */
+function fmtD(d){ const[y,m,dd]=d.split('-'); return`${dd}/${m}/${y}`; }
+
+/* ═══════════════════════════════════════════════
+   CONCORSO NUMBERS
+═══════════════════════════════════════════════ */
+
+/* After any merge/sort, recompute concorso = progressive number per year */
+function recomputeConcorsi() {
+  const byYear = {};
+  draws.forEach(dr => {
+    const y = dr.date.slice(0, 4);
+    if (!byYear[y]) byYear[y] = [];
+    byYear[y].push(dr);
+  });
+  Object.values(byYear).forEach(list => {
+    list.sort((a, b) => a.date.localeCompare(b.date));
+    list.forEach((dr, i) => dr.concorso = i + 1);
+  });
+}
+
+/* ═══════════════════════════════════════════════
+   ULTIMA ESTRAZIONE
+═══════════════════════════════════════════════ */
+
+function showLastDrawFromDB() {
+  if (!draws.length) {
+    setSt('err', 'Nessun dato nel database. Scarica prima lo storico.');
+    return;
+  }
+  // L'ultimo elemento del db (già ordinato cronologicamente) è l'ultima estrazione
+  const latest = draws[draws.length - 1];
+  renderLastDraw(latest, 0, false);
+  // update export filename hint with last draw date
+  const _expBtn = document.getElementById('btn-export');
+  if (_expBtn && draws.length) _expBtn.title = 'Esporta come superenalotto_'+draws[draws.length-1].date+'.json';
+  setSt('ok', `Ultima estrazione nel database: ${fmtD(latest.date)}`);
+}
+
+async function fetchLastDraw() {
+  const btn = document.getElementById('btn-last');
+  btn.disabled = true;
+  btn.textContent = '⏳ Aggiornamento in corso…';
+  setSt('wait', 'Scaricamento anno corrente…');
+
+  const thisYear = new Date().getFullYear();
+
+  try {
+    // Fetch the current year page directly (bypass anti-stale check)
+    let yearDraws = null;
+    for (const proxyFn of PROXIES) {
+      try {
+        const url  = proxyFn(SRC_FRESH(thisYear));
+        const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const html = await resp.text();
+        if (!html.includes('estrazione-')) throw new Error('Pagina vuota o proxy cache');
+        const parsed = parseYearPage(html, thisYear);
+        if (!parsed.length) throw new Error('Nessun dato parsato');
+        yearDraws = parsed;
+        break; // proxy worked
+      } catch(e) {
+        console.warn('fetchLastDraw proxy fallito:', e.message);
+      }
+    }
+
+    if (!yearDraws || !yearDraws.length) {
+      // All proxies failed: show from local db
+      setSt('warn', 'Proxy non disponibile — mostro ultima estrazione dal database locale.');
+      showLastDrawFromDB();
+      btn.disabled = false;
+      btn.textContent = '⚡ Controlla Ultima Estrazione';
+      return;
+    }
+
+    // Remember what dates we had before updating
+    const dbDatesBefore = new Set(draws.map(d => d.date));
+    const latestDateBefore = draws.length ? draws[draws.length-1].date : '';
+
+    // Full replace strategy: remove all this-year draws, add fresh ones
+    freq.fill(0);
+    draws = draws.filter(d => !d.date.startsWith(thisYear + ''));
+    yearDraws.forEach(dr => draws.push(dr));
+    draws.sort((a,b) => a.date.localeCompare(b.date));
+    recomputeConcorsi();
+
+    // Recompute freq from scratch
+    draws.forEach(dr => {
+      dr.nums.forEach(n => freq[n]++);
+      if (dr.jolly) freq[dr.jolly]++;
+      if (dr.ss)    freq[dr.ss]++;
+    });
+
+    // Count truly new draws (dates not present before)
+    const added = yearDraws.filter(d => !dbDatesBefore.has(d.date)).length;
+    const latestDateAfter = draws.length ? draws[draws.length-1].date : '';
+    const isNewer = latestDateAfter > latestDateBefore;
+    updateOverview();
+    updateGoBtn();
+
+    // Update the current-year pill with fresh count
+    setYearState(thisYear, 'done', yearDraws.length);
+
+    // Show latest draw (now saved in db)
+    const latest = draws[draws.length - 1];
+    renderLastDraw(latest, added, isNewer);
+
+    // If database changed, auto-export JSON
+    if (added > 0 || isNewer) {
+      exportJSON();
+    }
+
+    setSt('ok', added > 0
+      ? `✓ Database aggiornato: ${added} nuova estrazion${added===1?'e':'i'} aggiunta${added===1?'':'e'}. Ultima: ${fmtD(latest.date)} — JSON esportato.`
+      : isNewer
+        ? `✓ Database aggiornato con l'estrazione del ${fmtD(latest.date)} — JSON esportato.`
+        : `✓ Database già aggiornato. Ultima estrazione: ${fmtD(latest.date)}`
+    );
+
+  } catch(e) {
+    // Any error: show from local db
+    setSt('warn', 'Errore — mostro ultima estrazione dal database locale.');
+    showLastDrawFromDB();
+  }
+
+  btn.disabled = false;
+  btn.textContent = '⚡ Controlla Ultima Estrazione';
+}
+
+/* Compute next draw date after a given date.
+   Draws: Tue=2, Thu=4, Sat=6 */
+function nextDrawDate(fromDate) {
+  const d = new Date(fromDate);
+  d.setDate(d.getDate() + 1); // start from day after
+  for (let i = 0; i < 7; i++) {
+    const dow = d.getDay();
+    if (dow === 2 || dow === 4 || dow === 6) return d;
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+}
+
+/* Save a single draw object into draws[] and update freq[] */
+function saveLastDraw(dr) {
+  // Check not already present
+  if (draws.some(d => d.date === dr.date)) {
+    const msg = document.getElementById('save-last-msg');
+    if (msg) { msg.textContent = '✓ Già presente nel database.'; msg.style.display='block'; }
+    return;
+  }
+  // Add to draws, update freq
+  draws.push(dr);
+  draws.sort((a,b) => a.date.localeCompare(b.date));
+  recomputeConcorsi();
+  dr.nums.forEach(n => freq[n]++);
+  if (dr.jolly) freq[dr.jolly]++;
+  if (dr.ss)    freq[dr.ss]++;
+  updateOverview();
+  updateGoBtn();
+  // Hide save button, show confirmation
+  const saveBtn = document.getElementById('btn-save-last');
+  if (saveBtn) saveBtn.style.display = 'none';
+  const msg = document.getElementById('save-last-msg');
+  if (msg) {
+    msg.textContent = '✓ Estrazione del ' + fmtD(dr.date) + ' salvata. Esportazione JSON in corso…';
+    msg.style.display = 'block';
+    msg.style.color = 'var(--gold)';
+  }
+  // Update badge to show it's now saved
+  const status = document.getElementById('last-draw-status');
+  if (status) status.innerHTML = '<span class="already-badge">✓ Salvata nel database</span>';
+  // Auto-export JSON with updated db
+  exportJSON();
+  if (msg) {
+    msg.textContent = '✓ Estrazione del ' + fmtD(dr.date) + ' salvata e JSON esportato automaticamente!';
+  }
+}
+
+function renderLastDraw(dr, addedCount, isNewer) {
+  // Hide the intro body, show the result panel
+  document.getElementById('last-draw-body').style.display = 'none';
+  const result = document.getElementById('last-draw-result');
+  result.style.display = 'block';
+
+  // Concorso number + big date
+  const concEl = document.getElementById('last-draw-concorso');
+  if (concEl) concEl.textContent = dr.concorso ? String(dr.concorso) : '—';
+  document.getElementById('last-draw-bigdate').textContent = fmtD(dr.date);
+
+  // Badge (new / already)
+  const status = document.getElementById('last-draw-status');
+  // Save button: show if draw is not in db
+  const saveBtn = document.getElementById('btn-save-last');
+  const saveMsg = document.getElementById('save-last-msg');
+  if (saveBtn) {
+    const alreadySaved = draws.some(d => d.date === dr.date);
+    saveBtn.style.display = alreadySaved ? 'none' : 'inline-flex';
+    if (saveMsg) saveMsg.style.display = 'none';
+    saveBtn.onclick = () => saveLastDraw(dr);
+  }
+  if (addedCount > 0 || isNewer) {
+    const label = addedCount > 0 ? `✨ ${addedCount} NUOVA${addedCount>1?'':''}!` : '✨ NUOVA!';
+    status.innerHTML = `<span class="new-badge">${label}</span>`;
+  } else {
+    status.innerHTML = `<span class="already-badge">✓ Già nel database</span>`;
+  }
+
+  // Balls — reuse .slot classes exactly like the schedina
+  const container = document.getElementById('last-draw-balls');
+  container.innerHTML = '';
+
+  dr.nums.forEach(n => {
+    const sl = document.createElement('div');
+    sl.className = 'slot filled';
+    sl.style.cursor = 'default';
+    const lbl = document.createElement('span'); lbl.className = 'lbl';
+    sl.appendChild(document.createTextNode(n));
+    sl.appendChild(lbl);
+    container.appendChild(sl);
+  });
+
+  // Divider
+  const divider = document.createElement('div'); divider.className = 'div-slot';
+  container.appendChild(divider);
+
+  // Jolly
+  if (dr.jolly != null) {
+    const sl = document.createElement('div');
+    sl.className = 'slot filled is-j';
+    sl.style.cursor = 'default';
+    const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = 'Jolly';
+    sl.appendChild(document.createTextNode(dr.jolly));
+    sl.appendChild(lbl);
+    container.appendChild(sl);
+  }
+
+  // SuperStar
+  if (dr.ss != null) {
+    const sl = document.createElement('div');
+    sl.className = 'slot filled is-s';
+    sl.style.cursor = 'default';
+    const lbl = document.createElement('span'); lbl.className = 'lbl'; lbl.textContent = 'SS';
+    sl.appendChild(document.createTextNode(dr.ss));
+    sl.appendChild(lbl);
+    container.appendChild(sl);
+  }
+
+  // Next draw date
+  const next = nextDrawDate(dr.date);
+  const days = ['Dom','Lun','Mar','Mer','Gio','Ven','Sab'];
+  const months = ['Gen','Feb','Mar','Apr','Mag','Giu','Lug','Ago','Set','Ott','Nov','Dic'];
+  const nextLabel = `${days[next.getDay()]} ${next.getDate()} ${months[next.getMonth()]} ${next.getFullYear()}`;
+  document.getElementById('last-draw-nextdate').textContent = nextLabel;
+}
+
+/* Wire up the "controlla di nuovo" button inside the result panel */
+document.addEventListener('click', e => {
+  if (e.target && e.target.id === 'btn-last-again') {
+    // Show body again, hide result, re-trigger fetch
+    document.getElementById('last-draw-body').style.display = 'block';
+    document.getElementById('last-draw-result').style.display = 'none';
+    fetchLastDraw();
+  }
+});
+
+document.getElementById('btn-last').addEventListener('click', fetchLastDraw);
+
+/* ═══════════════════════════════════════════════
+   EXPORT / IMPORT JSON
+═══════════════════════════════════════════════ */
+
+// Export: serialize draws array to a JSON file and trigger download
+function exportJSON() {
+  if (!draws.length) return;
+  const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws }, null, 0);
+  const blob = new Blob([payload], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  a.href     = url;
+  const _ld = draws[draws.length-1].date;
+  a.download = 'superenalotto_' + _ld + '.json';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+document.getElementById('btn-export').addEventListener('click', () => {
+  exportJSON();
+  setSt('ok', `✓ File JSON esportato: ${draws.length.toLocaleString('it')} estrazioni salvate.`);
+});
+
+// Import: read JSON file and restore draws
+document.getElementById('json-import-input').addEventListener('change', e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  setSt('wait', `Caricamento "${file.name}"…`);
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      // Support both {draws:[...]} wrapper and raw array
+      const loaded = Array.isArray(data) ? data : (data.draws || []);
+      if (!loaded.length) throw new Error('Nessuna estrazione trovata nel file.');
+
+      // Restore draws and recompute freq
+      draws = loaded;
+      freq.fill(0);
+      draws.forEach(dr => {
+        dr.nums.forEach(n => freq[n]++);
+        if (dr.jolly) freq[dr.jolly]++;
+      });
+      draws.sort((a,b) => a.date.localeCompare(b.date));
+    recomputeConcorsi();
+
+      // Restore year status indicators
+      const yearsSeen = new Set(draws.map(dr => parseInt(dr.date.slice(0,4))));
+      const countByYear = {};
+      draws.forEach(dr => {
+        const y = parseInt(dr.date.slice(0,4));
+        countByYear[y] = (countByYear[y]||0) + 1;
+      });
+      YEARS.forEach(y => {
+        if (yearsSeen.has(y)) setYearState(y, 'done', countByYear[y]||0);
+        else setYearState(y, 'pending', 0);
+      });
+
+      // Show download controls in "resume" mode in case years are missing
+      document.getElementById('prog-wrap').style.display  = 'none';
+      document.getElementById('btn-dl').style.display     = 'none';
+      document.getElementById('btn-reset').style.display  = 'block';
+      const missing = YEARS.some(y => !yearsSeen.has(y));
+      if (missing) document.getElementById('btn-resume').style.display = 'block';
+
+      updateOverview();
+      updateGoBtn();
+      // Refresh current-year pill with count from imported data
+      const _cyCount = draws.filter(d => d.date.startsWith(THIS_YEAR + '')).length;
+      if (_cyCount > 0) setYearState(THIS_YEAR, 'done', _cyCount);
+      setSt('ok', `✓ Importate ${draws.length.toLocaleString('it')} estrazioni da "${file.name}".`);
+    } catch(err) {
+      setSt('err', 'Errore nel file JSON: ' + err.message);
+    }
+    // Reset input so same file can be reloaded
+    e.target.value = '';
+  };
+  reader.readAsText(file, 'UTF-8');
+});
+
+/* ═══════════════════════════════════════════════
+   INIT
+═══════════════════════════════════════════════ */
+buildYearGrid();
+buildSlots();
+updateGoBtn(); // o simile
+function showGrokSection() {
+  if (draws && draws.length > 0) {
+    document.getElementById('grok-card').style.display = 'block';
+  }
+}
+
+/* Genera previsioni di Grok localmente – versione INTELLIGENTE + RANDOM VERAMENTE CASUALE */
+function generateGrokPrevisione(ctx, hint) {
+  const hintLow = (hint || '').toLowerCase();
+
+  // Parser avanzato (stesso di Claude)
+  function parsePeriod(text) {
+    if (/ultim[oi]\s*(mese|30\s*giorni)/i.test(text)) return 1;
+    if (/ultim[oi]\s*([23])\s*mes[ei]/i.test(text)) return parseInt(text.match(/([23])\s*mes/i)[1]);
+    if (/ultim[oi]\s*6\s*mes[ei]/i.test(text)) return 6;
+    if (/ultim[oi]\s*(anno|12\s*mes[ei])/i.test(text)) return 12;
+    if (/ultim[oi]\s*(\d+)\s*ann[io]/i.test(text)) return parseInt(text.match(/(\d+)\s*ann[io]/i)[1]) * 12;
+    if (/ultim[oi]\s*(\d+)\s*mes[ei]/i.test(text)) return parseInt(text.match(/(\d+)\s*mes[ei]/i)[1]);
+    return 0;
+  }
+
+  function parseSlots(text) {
+    const slots = [];
+    const reMaster = /(\d+)\s+(?:numer[oi]\s+)?(?:tra\s+i\s+)?(pi[uù]\s+uscit[oi]|pi[uù]\s+frequent[ei]|pi[uù]\s+volt[ei]|cald[oi]|freddi?|freddo|in\s+ritard[oi]|rar[oi]|bilanciat[oi]|a\s+caso|casual[ei]|random|in\s+coppie?|in\s+terzin[ae])([^,;.\d]*)/gi;
+    let m;
+    while ((m = reMaster.exec(text)) !== null) {
+      const count = parseInt(m[1]);
+      const typeRaw = m[2].toLowerCase().trim();
+      let type = 'balanced';
+      if (/cald|pi.{0,4}uscit|pi.{0,4}frequent/.test(typeRaw)) type = 'hot';
+      else if (/freddo|freddi|ritard|rar/.test(typeRaw)) type = 'cold';
+      else if (/bilanciat/.test(typeRaw)) type = 'balanced';
+      else if (/caso|casual|random/.test(typeRaw)) type = 'random';
+      else if (/coppi|terzin/.test(typeRaw)) type = 'pairs';
+      const months = parsePeriod((m[3] || '') + text);
+      slots.push({ count, type, months });
+    }
+    return slots;
+  }
+
+  // Statistiche
+  function buildStats(subset) {
+    const n = subset.length || 1;
+    const freq = new Array(91).fill(0);
+    subset.forEach(dr => { dr.nums.forEach(x => freq[x]++); if (dr.jolly) freq[dr.jolly]++; });
+    const lastSeen = new Array(91).fill(-1);
+    subset.forEach((dr,i) => { dr.nums.forEach(x => lastSeen[x]=i); if(dr.jolly) lastSeen[dr.jolly]=i; });
+    const delay = x => lastSeen[x]===-1 ? n : (n-1-lastSeen[x]);
+    const maxF = Math.max(...freq.slice(1)) || 1;
+    const balScore = x => (freq[x]/maxF)*0.45 + (delay(x)/n)*0.55;
+    const nums = Array.from({length:90},(_,i)=>i+1);
+    const byFreq = nums.slice().sort((a,b)=>freq[b]-freq[a]);
+    const byDelay = nums.slice().sort((a,b)=>delay(b)-delay(a));
+    const byBalance = nums.slice().sort((a,b)=>balScore(b)-balScore(a));
+    const pc = {};
+    subset.forEach(dr=>{ const ns=dr.nums; for(let i=0;i<ns.length;i++) for(let j=i+1;j<ns.length;j++){ const k=ns[i]+'-'+ns[j]; pc[k]=(pc[k]||0)+1; } });
+    const topPairNums = new Set();
+    Object.entries(pc).sort((a,b)=>b[1]-a[1]).slice(0,5).forEach(([k])=>k.split('-').map(Number).forEach(x=>topPairNums.add(x)));
+    return { freq, delay, byFreq, byDelay, byBalance, topPairNums };
+  }
+
+  const st = buildStats(draws);
+  const st0 = buildStats(draws);
+
+  const slots = parseSlots(hintLow);
+  const isStructured = slots.length > 0;
+
+  // ── MODALITÀ STRUTTURATA (es. "4 caldi + 1 freddo + 1 casuale") ──
+  if (isStructured) {
+    let main6 = [];
+    let reasonParts = [];
+
+    for (const sl of slots) {
+      if (main6.length >= 6) break;
+      const need = Math.min(sl.count, 6 - main6.length);
+      let list = sl.type === 'hot' ? st.byFreq : sl.type === 'cold' ? st.byDelay : sl.type === 'pairs' ? [...st.topPairNums, ...st.byBalance] : st.byBalance;
+      if (sl.type === 'random') list = st.byBalance.slice().sort(() => Math.random() - 0.5);
+
+      const chosen = [];
+      for (const x of list) if (!main6.includes(x)) { chosen.push(x); if (chosen.length >= need) break; }
+      main6.push(...chosen);
+      reasonParts.push(`• ${need} ${sl.type==='hot'?'caldi':sl.type==='cold'?'freddi':sl.type==='random'?'casuali':'bilanciati'} → ${chosen.join(', ')}`);
+    }
+
+    if (main6.length < 6) {
+      const filler = st.byBalance.filter(n => !main6.includes(n)).slice(0, 6-main6.length);
+      main6.push(...filler);
+    }
+
+    main6 = main6.slice(0,6).sort((a,b)=>a-b);
+    const jollyN = st0.byDelay.find(n => !main6.includes(n));
+    const ssN = st0.byFreq.find(n => ![...main6, jollyN].includes(n));
+
+    return { nums: main6, jolly: jollyN, ss: ssN, reasoning: `Ho seguito alla lettera:\n${reasonParts.join('\n')}\n\nJolly: ${jollyN} • SuperStar: ${ssN}\nUltima estrazione: ${fmtD(draws[draws.length-1].date)}. Gioca per divertimento! 🚀` };
+  }
+
+  // ── MODALITÀ CLASSICA + RANDOM VERAMENTE CASUALE ──
+  if (/casual|random|completamente casuali|a caso/i.test(hintLow)) {
+    // Estrazione 100% casuale ogni volta (no più ripetizioni!)
+    const allNums = Array.from({length:90}, (_,i) => i+1);
+    const random6 = allNums.sort(() => Math.random() - 0.5).slice(0,6).sort((a,b)=>a-b);
+    const jollyN = st.byDelay[Math.floor(Math.random()*st.byDelay.length)];
+    const ssN = st.byFreq[Math.floor(Math.random()*st.byFreq.length)];
+    return { nums: random6, jolly: jollyN, ss: ssN, reasoning: `Hai chiesto completamente casuali! 🎲\nHo estratto 6 numeri diversi ogni volta (nessuna memoria).\nJolly: ${jollyN} • SuperStar: ${ssN}\nBuona fortuna! 🚀` };
+  }
+
+  // Modalità normale (hot/cold/balanced) – invariata
+  let main6 = st.byBalance.slice(0,6);
+  const jollyN = st.byDelay[0];
+  const ssN = st.byFreq[0];
+  return { nums: main6, jolly: jollyN, ss: ssN, reasoning: `Sensazione equilibrata con twist cosmico.\nJolly: ${jollyN} • SuperStar: ${ssN}\nGioca per divertimento! 🚀` };
+}
+
+// Wire up eventi
+document.getElementById('btn-grok').addEventListener('click', askGrok);
+document.getElementById('grok-hint').addEventListener('keydown', e => { if(e.key==='Enter') askGrok(); });
+document.addEventListener('click', e => {
+  if (e.target && e.target.id === 'btn-grok-again') {
+    document.getElementById('grok-result').style.display = 'none';
+    askGrok();
+  }
+});
+
+// Mostra sezione quando db pronto (aggiungi a updateGoBtn o simile)
+showGrokSection();  // O chiama quando appropriato
+
+
 
 </script>
 
@@ -3642,6 +4538,7 @@ async function ghDownload(silent) {
     updateYearPills();
     document.getElementById('sistema-section').style.display = 'block';
     document.getElementById('results').style.display = 'block';
+    if (typeof showForecastSection === 'function') showForecastSection();
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
     fetchJackpotOnly();
     return true;
@@ -3708,6 +4605,7 @@ window.addEventListener('load', async () => {
             showLastDrawFromDB();
             document.getElementById('sistema-section').style.display = 'block';
             document.getElementById('results').style.display = 'block';
+            if (typeof showForecastSection === 'function') showForecastSection();
             ghSetStatus('✓ Database caricato automaticamente: ' + draws.length + ' estrazioni.', '#489a45');
             fetchJackpotOnly();
           }
