@@ -1,1 +1,41 @@
+name: Aggiornamento automatico database SuperEnalotto
 
+on:
+  schedule:
+    # Estrazioni: martedì, giovedì, venerdì, sabato alle 20:00 ora italiana
+    # GitHub Actions usa UTC — ora italiana in estate = UTC+2, in inverno = UTC+1
+    # Usiamo 18:30 UTC per coprire entrambi (20:30 ora italiana in inverno, 20:30 in estate)
+    - cron: '30 18 * * 2'   # martedì   20:30 IT (inverno) / 20:30 IT (estate)
+    - cron: '30 18 * * 4'   # giovedì
+    - cron: '30 18 * * 5'   # venerdì
+    - cron: '30 18 * * 6'   # sabato
+
+  # Permette esecuzione manuale dalla tab Actions di GitHub
+  workflow_dispatch:
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      contents: write  # necessario per modificare file nel repository
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Installa dipendenze
+        run: pip install requests beautifulsoup4
+
+      - name: Esegui aggiornamento database
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: python update_database.py
+
+      - name: Log risultato
+        run: echo "Aggiornamento completato alle $(date)"
