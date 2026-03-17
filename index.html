@@ -1063,13 +1063,7 @@ function parseYearPage(html, year) {
   results.sort((a, b) => a.date.localeCompare(b.date));
   results.forEach((dr, i) => dr.concorso = i + 1);
 
-  // Estrai jackpot dall'HTML (es. "135.500.000 €")
-  // Jackpot non è in risultati/ANNO — viene fetchato separatamente
-  if (jm) {
-    window.lastJackpot = jm[1].trim().replace(/\s+/g,'');
-    const el = document.getElementById('jackpot-value');
-    if (el) el.textContent = window.lastJackpot;
-  }
+
   return results;
 }
 
