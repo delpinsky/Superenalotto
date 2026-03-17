@@ -989,7 +989,8 @@ const SRC_FRESH = year => SRC(year); // timestamp is now in the proxy URL, not h
 /* ═══════════════════════════════════════════════
    DATA STORE
 ═══════════════════════════════════════════════ */
-let draws   = [];   // [{date, nums[6], jolly, ss}]
+let draws   = [];   // [{date, nums[6], jolly, ss}
+window.lastJackpot = null; // jackpot — window scope accessibile da tutti gli script]
 let freq    = new Array(91).fill(0);
 let yearStatus = {}; // year → 'pending'|'loading'|'done'|'error'
 let yearCounts = {};
@@ -1065,9 +1066,9 @@ function parseYearPage(html, year) {
   // Estrai jackpot dall'HTML (es. "135.500.000 €")
   // Jackpot non è in risultati/ANNO — viene fetchato separatamente
   if (jm) {
-    lastJackpot = jm[1].trim().replace(/\s+/g,'');
+    window.lastJackpot = jm[1].trim().replace(/\s+/g,'');
     const el = document.getElementById('jackpot-value');
-    if (el) el.textContent = lastJackpot;
+    if (el) el.textContent = window.lastJackpot;
   }
   return results;
 }
@@ -3048,14 +3049,6 @@ async function fetchLastDraw() {
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
         yearDraws = parsed;
-        // Estrai jackpot dall'HTML già scaricato
-        const jm = html.match(/prossimo jackpot[\s\S]{0,50}?(\d[\d\.]+(?:\.\d{3})*(?:,\d{2})?\s*\u20ac)/i)
-                || html.match(/jackpot[^€\d]{0,30}(\d[\d\.]+\s*\u20ac)/i)
-                || html.match(/(\d{2,3}(?:\.\d{3})+(?:,\d{2})?\s*\u20ac)/i);
-        if (jm) {
-          const el = document.getElementById('jackpot-value');
-          if (el) el.textContent = jm[1].trim().replace(/\s+/g,'');
-        }
         break; // proxy worked
       } catch(e) {
         console.warn('fetchLastDraw proxy fallito:', e.message);
@@ -3270,7 +3263,7 @@ document.getElementById('btn-last').addEventListener('click', fetchLastDraw);
 // Export: serialize draws array to a JSON file and trigger download
 function exportJSON() {
   if (!draws.length) return;
-  const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws, jackpot: lastJackpot }, null, 0);
+  const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws, jackpot: window.lastJackpot }, null, 0);
   const blob = new Blob([payload], { type: 'application/json' });
   const url  = URL.createObjectURL(blob);
   const a    = document.createElement('a');
@@ -3309,9 +3302,9 @@ document.getElementById('json-import-input').addEventListener('change', e => {
       // Support both {draws:[...]} wrapper and raw array
       const loaded = Array.isArray(data) ? data : (data.draws || []);
       if (data.jackpot) {
-        lastJackpot = data.jackpot;
+        window.lastJackpot = data.jackpot;
         const jel = document.getElementById('jackpot-value');
-        if (jel) jel.textContent = lastJackpot;
+        if (jel) jel.textContent = window.lastJackpot;
       }
       if (!loaded.length) throw new Error('Nessuna estrazione trovata nel file.');
 
@@ -3641,9 +3634,9 @@ async function ghDownload(silent) {
     const content = JSON.parse(atob(json.content.replace(/\n/g, '')));
     const loaded = Array.isArray(content) ? content : (content.draws || []);
     if (content.jackpot) {
-      lastJackpot = content.jackpot;
+      window.lastJackpot = content.jackpot;
       const jel = document.getElementById('jackpot-value');
-      if (jel) jel.textContent = lastJackpot;
+      if (jel) jel.textContent = window.lastJackpot;
     }
     if (!loaded.length) { ghSetStatus('⚠ File GitHub vuoto.', '#e74c3c'); return false; }
     draws = loaded;
@@ -3679,7 +3672,7 @@ document.getElementById('gh-sync-up')?.addEventListener('click', async () => {
     });
     if (check.ok) { const j = await check.json(); sha = j.sha; }
 
-    const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws, jackpot: lastJackpot }, null, 0);
+    const payload = JSON.stringify({ version: 1, exported: new Date().toISOString(), draws, jackpot: window.lastJackpot }, null, 0);
     const body = { message: 'Aggiornamento database estrazioni', content: btoa(payload) };
     if (sha) body.sha = sha;
 
@@ -3708,9 +3701,9 @@ window.addEventListener('load', async () => {
           const content = await raw.json();
           const loaded = Array.isArray(content) ? content : (content.draws || []);
           if (content.jackpot) {
-            lastJackpot = content.jackpot;
+            window.lastJackpot = content.jackpot;
             const jel = document.getElementById('jackpot-value');
-            if (jel) jel.textContent = lastJackpot;
+            if (jel) jel.textContent = window.lastJackpot;
           }
           if (loaded.length) {
             draws = loaded;
