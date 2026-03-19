@@ -519,6 +519,16 @@
       <button class="btn btn-gold" id="btn-save-donation">✓ Attiva</button>
     </div>
     <div id="donation-status" style="font-size:11px;margin-top:6px;color:var(--muted)"></div>
+    <!-- Gist ID opzionale -->
+    <div style="margin-top:12px">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">b05688ab38719848541c312b2407187a</div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap">
+        <input id="gist-id-input" type="text" placeholder="es. a1b2c3d4e5f6..."
+          style="flex:1;min-width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-family:monospace">
+        <button class="btn" id="btn-save-gist" style="font-size:12px;padding:7px 14px;background:var(--surface2);border:1px solid var(--border);color:var(--text)">Salva</button>
+      </div>
+      <div id="gist-status" style="font-size:11px;margin-top:4px;color:var(--muted)"></div>
+    </div>
   </div>
   <div id="gh-setup" style="display:none;margin-bottom:14px">
     <div style="font-size:12px;color:var(--muted);margin-bottom:8px">Inserisci il tuo <b style="color:var(--text)">Personal Access Token</b> GitHub per sincronizzare il database automaticamente. Il token viene salvato solo sul tuo dispositivo.</div>
@@ -911,6 +921,10 @@
         </div>
         <div class="slots-row" id="claude-balls"></div>
       </div>
+      <!-- carica in schedina -->
+      <div style="text-align:right;margin-bottom:10px">
+        <button class="btn btn-gold" id="btn-load-claude" style="font-size:12px;padding:7px 16px">↑ Carica in schedina</button>
+      </div>
       <!-- reasoning -->
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:22px 24px">
         <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--muted);margin-bottom:14px">
@@ -943,6 +957,9 @@
     <span class="dot dot-wait"></span> Grok sta consultando l'universo...
   </div>
   <div id="grok-result" style="display:none">
+  <div style="text-align:right;margin-bottom:10px">
+    <button class="btn btn-gold" id="btn-load-grok" style="font-size:12px;padding:7px 16px">↑ Carica in schedina</button>
+  </div>
   <div style="background:var(--surface2);border:1px solid rgba(155,89,182,.25);border-radius:14px;padding:22px 24px;margin-bottom:16px">
     <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:14px">
       La mia schedina per la prossima estrazione
@@ -3645,6 +3662,66 @@ async function askGrok() {
 }
 
 // Wire up eventi
+
+// ── Carica numeri da Claude/Grok nella schedina ──────────────────────────
+function loadBallsIntoSchedule(containerId) {
+  const container = document.getElementById(containerId);
+  if (!container) return;
+  // Estrai i numeri dalle palline (data-num attribute o testo)
+  const balls = container.querySelectorAll('.ball, [data-num], .slot-ball');
+  const nums = [], labels = [];
+  balls.forEach(b => {
+    const n = parseInt(b.dataset.num || b.textContent.trim());
+    const lbl = (b.nextElementSibling?.textContent || '').toLowerCase();
+    if (!isNaN(n) && n >= 1 && n <= 90) {
+      if (lbl.includes('jolly')) labels.push({n, t:'jolly'});
+      else if (lbl.includes('ss') || lbl.includes('superstar')) labels.push({n, t:'ss'});
+      else nums.push(n);
+    }
+  });
+
+  // Carica nei slot V
+  V.s1 = nums[0]||null; V.s2 = nums[1]||null; V.s3 = nums[2]||null;
+  V.s4 = nums[3]||null; V.s5 = nums[4]||null; V.s6 = nums[5]||null;
+  const jollyItem = labels.find(l => l.t === 'jolly');
+  const ssItem    = labels.find(l => l.t === 'ss');
+  V.jolly = jollyItem ? jollyItem.n : null;
+  V.ss    = ssItem    ? ssItem.n    : null;
+  renderSlots();
+  document.getElementById('schedina-card')?.scrollIntoView({behavior:'smooth', block:'start'});
+}
+
+document.getElementById('btn-load-claude')?.addEventListener('click', () => loadBallsIntoSchedule('claude-balls'));
+document.getElementById('btn-load-grok')?.addEventListener('click', () => loadBallsIntoSchedule('grok-balls'));
+
+
+// ── Gist ID ───────────────────────────────────────────────────────────────
+document.getElementById('btn-save-gist')?.addEventListener('click', () => {
+  const input  = document.getElementById('gist-id-input');
+  const status = document.getElementById('gist-status');
+  const gistId = input.value.trim();
+  if (!gistId) {
+    localStorage.removeItem(GIST_ID_KEY);
+    status.textContent = 'Gist ID rimosso.';
+    status.style.color = 'var(--muted)';
+    return;
+  }
+  localStorage.setItem(GIST_ID_KEY, gistId);
+  status.textContent = '✓ Gist ID salvato.';
+  status.style.color = '#489a45';
+  input.value = '';
+});
+
+// Mostra Gist ID esistente
+(function() {
+  const gistId = localStorage.getItem(GIST_ID_KEY);
+  const status = document.getElementById('gist-status');
+  if (gistId && status) {
+    status.textContent = 'Gist attivo: ' + gistId.slice(0,8) + '…';
+    status.style.color = '#489a45';
+  }
+})();
+
 document.getElementById('btn-grok').addEventListener('click', askGrok);
 document.addEventListener('click', e => {
   if (e.target && e.target.id === 'btn-grok-again') {
@@ -4532,6 +4609,38 @@ showGrokSection();  // O chiama quando appropriato
 
 <script>
 
+
+// ── Validazione codice via Gist privato ──────────────────────────────────
+// Il Gist contiene un codice per riga. Se il codice è presente → valido.
+// Richiede il token GitHub (già salvato dall'utente) e l'ID del Gist.
+async function validateViaGist(code) {
+  const token  = localStorage.getItem(GH_TOKEN_KEY);
+  const gistId = localStorage.getItem(GIST_ID_KEY);
+  if (!token || !gistId) return null; // null = non configurato, non fallire
+  try {
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    // Cerca il file codici nel Gist (qualsiasi file)
+    const file = Object.values(data.files)[0];
+    if (!file) return null;
+    const lines = (file.content || '').toUpperCase().split('\n').map(l => l.trim()).filter(Boolean);
+    return lines.includes(code.toUpperCase());
+  } catch(e) { return null; }
+}
+
+// Validazione combinata: Gist (se configurato) + checksum matematico
+async function validateDonationCodeFull(code) {
+  // Prima prova Gist — più sicuro (univoco)
+  const gistResult = await validateViaGist(code);
+  if (gistResult === true)  return true;
+  if (gistResult === false) return false; // Gist configurato ma codice non trovato
+  // Gist non configurato → fallback a checksum matematico
+  return validateDonationCode(code);
+}
+
 // ── Validazione codice donazione ─────────────────────────────────────────
 // Logica: SUPER-SEED-HMAC(secret,SEED)-ENA
 // L'app verifica che HMAC(secret, SEED) corrisponda al checksum nel codice
@@ -4618,8 +4727,9 @@ async function fetchJackpotOnly() {
 const GH_REPO  = 'delpinsky/Superenalotto';
 const GH_FILE  = 'storico-estrazioni-superenalotto.json';
 const GH_TOKEN_KEY   = 'gh_pat_superenalotto';
-const DONATION_KEY   = 'superenalotto_donation_code';
-const DONATION_SECRET = 'SUPER-1234-1234-ENA'; // ← stessa chiave del generatore
+const DONATION_KEY    = 'superenalotto_donation_code';
+const GIST_ID_KEY     = 'superenalotto_gist_id'; // ID del Gist privato con i codici validi
+const DONATION_SECRET = 'CAMBIA-QUESTA-CHIAVE-2026'; // ← stessa chiave del generatore
 const GH_API   = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
 
 function ghGetToken()  { return localStorage.getItem(GH_TOKEN_KEY) || ''; }
@@ -4649,7 +4759,7 @@ document.getElementById('btn-save-donation')?.addEventListener('click', async ()
   if (!code) { status.textContent = '⚠ Inserisci il codice.'; status.style.color = '#e74c3c'; return; }
 
   status.textContent = '⏳ Verifica in corso…'; status.style.color = 'var(--muted)';
-  const valid = await validateDonationCode(code);
+  const valid = await validateDonationCodeFull(code);
 
   if (valid) {
     saveDonationCode(code);
@@ -4667,7 +4777,7 @@ document.getElementById('btn-save-donation')?.addEventListener('click', async ()
   const code = getDonationCode();
   const status = document.getElementById('donation-status');
   if (code && status) {
-    const valid = await validateDonationCode(code);
+    const valid = await validateDonationCodeFull(code);
     if (valid) {
       status.textContent = '✓ Codice donazione attivo: ' + code;
       status.style.color = '#489a45';
@@ -4919,7 +5029,7 @@ window.addEventListener('load', async () => {
     // Controlla codice donazione — se valido, nessun popup
     const donCode = getDonationCode();
     if (donCode) {
-      const valid = await validateDonationCode(donCode);
+      const valid = await validateDonationCodeFull(donCode);
       if (valid) return; // donatore — nessun popup
     }
 
