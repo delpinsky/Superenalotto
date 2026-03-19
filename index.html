@@ -4775,6 +4775,11 @@ document.getElementById('btn-save-donation')?.addEventListener('click', async ()
     input.value = '';
     status.textContent = '✓ Codice valido! Il popup non apparirà più.';
     status.style.color = '#489a45';
+    // Nascondi la sezione donazione dopo 1.5 secondi
+    setTimeout(() => {
+      const sec = document.getElementById('donation-code-section');
+      if (sec) sec.style.display = 'none';
+    }, 1500);
   } else {
     status.textContent = '✗ Codice non valido. Controlla di averlo inserito correttamente.';
     status.style.color = '#e74c3c';
@@ -4784,12 +4789,11 @@ document.getElementById('btn-save-donation')?.addEventListener('click', async ()
 // Mostra stato codice donazione esistente
 (async () => {
   const code = getDonationCode();
-  const status = document.getElementById('donation-status');
-  if (code && status) {
+  if (code) {
     const valid = await validateDonationCodeFull(code);
     if (valid) {
-      status.textContent = '✓ Codice donazione attivo: ' + code;
-      status.style.color = '#489a45';
+      const sec = document.getElementById('donation-code-section');
+      if (sec) sec.style.display = 'none';
     }
   }
 })();
@@ -4923,6 +4927,7 @@ window.addEventListener('load', async () => {
     }
   } else if (isDonor) {
     // Donatore senza token — carica il database pubblico raw
+    ghSetStatus('⏳ Caricamento database…', 'var(--muted)');
     try {
       const raw = await fetch('https://raw.githubusercontent.com/' + GH_REPO + '/main/' + GH_FILE);
       if (raw.ok) {
