@@ -4917,6 +4917,33 @@ window.addEventListener('load', async () => {
         }
       } catch(e) {}
     }
+  } else if (isDonor) {
+    // Donatore senza token — carica il database pubblico raw
+    try {
+      const raw = await fetch('https://raw.githubusercontent.com/' + GH_REPO + '/main/' + GH_FILE);
+      if (raw.ok) {
+        const content = await raw.json();
+        const loaded = Array.isArray(content) ? content : (content.draws || []);
+        if (content.jackpot) {
+          window.lastJackpot = content.jackpot;
+          const jel = document.getElementById('jackpot-value');
+          if (jel) jel.textContent = window.lastJackpot;
+        }
+        if (loaded.length) {
+          draws = loaded;
+          recomputeConcorsi();
+          freq.fill(0);
+          draws.forEach(d => d.nums.forEach(n => freq[n]++));
+          showLastDrawFromDB();
+          updateYearPills();
+          document.getElementById('sistema-section').style.display = 'block';
+          document.getElementById('results').style.display = 'block';
+          if (typeof showForecastSection === 'function') showForecastSection();
+          ghSetStatus('✓ Database caricato: ' + draws.length + ' estrazioni.', '#489a45');
+          fetchJackpotOnly();
+        }
+      }
+    } catch(e) {}
   }
 });
 </script>
