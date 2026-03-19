@@ -3,6 +3,15 @@
 
 ---
 
+## v1.0.4 — Marzo 2026
+- Sistema codici donazione completo
+- Gist privato per codici univoci
+- Pulsante "↑ Carica in schedina" per Claude e Grok
+- GitHub Actions per aggiornamento automatico
+- Fix validazione codici
+
+---
+
 ## v1.0.3 — Marzo 2026
 ### Miglioramenti parser previsioni Claude
 - Aggiunto riconoscimento parole numerali italiane: "due", "tre", "quattro", "cinque", "sei"
