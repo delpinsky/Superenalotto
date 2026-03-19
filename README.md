@@ -4,6 +4,7 @@
 ---
 
 ## v1.0.4 — Marzo 2026
+### Miglioramenti al codice dei codici donazione
 - Sistema codici donazione completo
 - Gist privato per codici univoci
 - Pulsante "↑ Carica in schedina" per Claude e Grok
