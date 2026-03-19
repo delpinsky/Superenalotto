@@ -916,14 +916,11 @@
     <div id="claude-result" style="display:none">
       <!-- balls row -->
       <div style="background:var(--surface2);border:1px solid rgba(155,89,182,.25);border-radius:14px;padding:22px 24px;margin-bottom:16px">
-        <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:14px">
-          La mia schedina per la prossima estrazione
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+          <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple)">La mia schedina per la prossima estrazione</div>
+          <button id="btn-load-claude" class="btn-fav-del" style="border-color:var(--gold-dim);color:var(--gold)">↑ Carica</button>
         </div>
         <div class="slots-row" id="claude-balls"></div>
-      </div>
-      <!-- carica in schedina -->
-      <div style="text-align:right;margin-bottom:10px">
-        <button id="btn-load-claude" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.5px">↑ Carica</button>
       </div>
       <!-- reasoning -->
       <div style="background:var(--surface2);border:1px solid var(--border);border-radius:14px;padding:22px 24px">
@@ -957,12 +954,10 @@
     <span class="dot dot-wait"></span> Grok sta consultando l'universo...
   </div>
   <div id="grok-result" style="display:none">
-  <div style="text-align:right;margin-bottom:10px">
-    <button id="btn-load-grok" style="background:transparent;border:1px solid var(--border);color:var(--text);border-radius:8px;padding:5px 14px;font-size:12px;font-weight:600;cursor:pointer;letter-spacing:.5px">↑ Carica</button>
-  </div>
   <div style="background:var(--surface2);border:1px solid rgba(155,89,182,.25);border-radius:14px;padding:22px 24px;margin-bottom:16px">
-    <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple);margin-bottom:14px">
-      La mia schedina per la prossima estrazione
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:14px">
+      <div style="font-size:10px;letter-spacing:3px;text-transform:uppercase;color:var(--purple)">La mia schedina per la prossima estrazione</div>
+      <button id="btn-load-grok" class="btn-fav-del" style="border-color:var(--gold-dim);color:var(--gold)">↑ Carica</button>
     </div>
     <div class="slots-row" id="grok-balls"></div>
   </div>
