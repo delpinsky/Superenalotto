@@ -4684,12 +4684,13 @@ async function validateDonationCode(code) {
   if (!/^SUPER-[0-9A-Z]{4}-[0-9A-Z]{4}-ENA$/i.test(code)) return false;
   const parts = code.toUpperCase().split('-');
   const seed = parts[1], provided = parts[2];
-  // Accetta codici generati con entrambi gli algoritmi
-  if (djb2Hmac(DONATION_SECRET, seed) === provided) return true;
+  // Prima subtleHmac (online/HTTPS — più sicuro), poi djb2 come fallback offline
   try {
     const expected = await subtleHmac(DONATION_SECRET, seed);
-    return expected === provided;
-  } catch(e) { return false; }
+    if (expected === provided) return true;
+  } catch(e) {}
+  // Fallback offline
+  return djb2Hmac(DONATION_SECRET, seed) === provided;
 }
 
 function getDonationCode() { return localStorage.getItem(DONATION_KEY) || ''; }
@@ -4888,6 +4889,9 @@ document.getElementById('gh-sync-up')?.addEventListener('click', async () => {
 // ── Auto-caricamento all'avvio ───────────────
 window.addEventListener('load', async () => {
   ghRenderUI();
+  // Controlla codice donazione
+  const _donCode = localStorage.getItem(DONATION_KEY);
+  const isDonor  = _donCode ? await validateDonationCodeFull(_donCode) : false;
   if (ghGetToken()) {
     const ok = await ghDownload(true);
     if (!ok) {
