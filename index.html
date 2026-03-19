@@ -519,9 +519,9 @@
       <button class="btn btn-gold" id="btn-save-donation">✓ Attiva</button>
     </div>
     <div id="donation-status" style="font-size:11px;margin-top:6px;color:var(--muted)"></div>
-    <!-- Gist ID opzionale -->
-    <div style="margin-top:12px">
-      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">b05688ab38719848541c312b2407187a</div>
+    <!-- Gist ID — solo per il proprietario -->
+    <div id="gist-id-section" style="margin-top:12px;display:none">
+      <div style="font-size:11px;color:var(--muted);margin-bottom:4px">ID GIST CODICI (solo proprietario)</div>
       <div style="display:flex;gap:8px;flex-wrap:wrap">
         <input id="gist-id-input" type="text" placeholder="es. a1b2c3d4e5f6..."
           style="flex:1;min-width:180px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;color:var(--text);font-size:12px;font-family:monospace">
@@ -3695,7 +3695,13 @@ document.getElementById('btn-load-claude')?.addEventListener('click', () => load
 document.getElementById('btn-load-grok')?.addEventListener('click', () => loadBallsIntoSchedule('grok-balls'));
 
 
-// ── Gist ID ───────────────────────────────────────────────────────────────
+// ── Gist ID — configurabile da console: setGistId('ID_GIST') ───────────────
+function setGistId(id) {
+  localStorage.setItem(GIST_ID_KEY, id);
+  console.log('✓ Gist ID salvato:', id);
+}
+function getGistId() { return localStorage.getItem(GIST_ID_KEY) || '(non configurato)'; }
+
 document.getElementById('btn-save-gist')?.addEventListener('click', () => {
   const input  = document.getElementById('gist-id-input');
   const status = document.getElementById('gist-status');
@@ -4614,21 +4620,23 @@ showGrokSection();  // O chiama quando appropriato
 // Il Gist contiene un codice per riga. Se il codice è presente → valido.
 // Richiede il token GitHub (già salvato dall'utente) e l'ID del Gist.
 async function validateViaGist(code) {
-  const token  = localStorage.getItem(GH_TOKEN_KEY);
   const gistId = localStorage.getItem(GIST_ID_KEY);
-  if (!token || !gistId) return null; // null = non configurato, non fallire
+  if (!gistId) return null;
+  const token = localStorage.getItem(GH_TOKEN_KEY);
+  console.log('Gist check:', {gistId: gistId.slice(0,8)+'…', hasToken: !!token, code});
   try {
-    const res = await fetch(`https://api.github.com/gists/${gistId}`, {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github.v3+json' }
-    });
+    const headers = { 'Accept': 'application/vnd.github.v3+json' };
+    if (token) headers['Authorization'] = 'token ' + token;
+    const res = await fetch(`https://api.github.com/gists/${gistId}`, { headers });
+    console.log('Gist HTTP:', res.status);
     if (!res.ok) return null;
     const data = await res.json();
-    // Cerca il file codici nel Gist (qualsiasi file)
     const file = Object.values(data.files)[0];
-    if (!file) return null;
+    if (!file) { console.log('Gist: no file found'); return null; }
     const lines = (file.content || '').toUpperCase().split('\n').map(l => l.trim()).filter(Boolean);
+    console.log('Gist lines:', lines.slice(0,3), '— searching:', code.toUpperCase());
     return lines.includes(code.toUpperCase());
-  } catch(e) { return null; }
+  } catch(e) { console.error('Gist error:', e.message); return null; }
 }
 
 // Validazione combinata: Gist (se configurato) + checksum matematico
