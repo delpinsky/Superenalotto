@@ -79,8 +79,9 @@ voglio numeri freddi degli ultimi due anni
 
 ## 📋 Changelog
 
-### v1.0.10 — dopo aver premuto "✓ Attiva" con un codice valido, ora avviene in sequenza:
+### v1.0.10 — 2026-03-21
 
+- Dopo aver premuto "✓ Attiva" con un codice valido, ora avviene in sequenza:
 - Il messaggio cambia subito in "✓ Codice valido! Caricamento database in corso…"
 - Scarica il database raw da GitHub (lo stesso file che viene caricato al boot per i donatori)
 - Ricostruisce draws[], freq[], aggiorna le pillole anni, le statistiche e le sezioni previsioni
