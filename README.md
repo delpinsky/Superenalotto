@@ -79,6 +79,16 @@ voglio numeri freddi degli ultimi due anni
 
 ## 📋 Changelog
 
+### v1.0.10 — dopo aver premuto "✓ Attiva" con un codice valido, ora avviene in sequenza:
+
+- Il messaggio cambia subito in "✓ Codice valido! Caricamento database in corso…"
+- Scarica il database raw da GitHub (lo stesso file che viene caricato al boot per i donatori)
+- Ricostruisce draws[], freq[], aggiorna le pillole anni, le statistiche e le sezioni previsioni
+- Chiama fetchJackpotOnly() per aggiornare il jackpot
+- Chiama fetchLastDraw() per controllare e mostrare automaticamente l'ultima estrazione
+- Il messaggio finale mostra il numero di estrazioni caricate
+- La sezione donazione si nasconde dopo 2 secondi
+
 ### v1.0.9 — 2026-03-21
 - **Nuova sezione "🤖 Previsioni di ChatGPT"** — integrata con parser NLP identico a Claude
 - Score `/100` e tag colorati (🔥 Hot, ❄️ Cold, ⚖️ Balanced, 🎲 Random) per ogni previsione
