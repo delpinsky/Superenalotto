@@ -3680,11 +3680,15 @@ function renderWinningsTable(sections) {
         color:var(--muted);margin-bottom:8px;padding-bottom:4px;
         border-bottom:1px solid var(--border)">${sec.title}</div>
       <table style="width:100%;border-collapse:collapse;font-size:13px">
-        <colgroup><col style="width:auto"><col style="width:90px"><col style="width:130px"></colgroup>
+        <colgroup>
+          <col style="width:100px">
+          <col style="width:500px">
+          <col style="width:100px">
+        </colgroup>
         <thead>
           <tr>
             <th style="text-align:left;padding:5px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>
-            <th style="text-align:right;padding:5px 6px;font-size:10px;color:var(--muted);font-weight:400">Vincitori</th>
+            <th style="text-align:center;padding:5px 6px;font-size:10px;color:var(--muted);font-weight:400">Vincitori</th>
             <th style="text-align:right;padding:5px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio</th>
           </tr>
         </thead><tbody>`;
@@ -3698,7 +3702,7 @@ function renderWinningsTable(sections) {
       const wStyle = noWin ? 'color:var(--muted)' : 'color:var(--text)';
       html += `<tr style="${bg}">
         <td style="padding:6px 6px;${catStyle}">${r.cat}</td>
-        <td style="padding:6px 6px;text-align:right;${wStyle}">${r.winners}</td>
+        <td style="padding:6px 6px;text-align:center;${wStyle}">${r.winners}</td>
         <td style="padding:6px 6px;text-align:right;${prizeStyle}">${r.prize || '—'}</td>
       </tr>`;
     });
