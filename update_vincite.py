@@ -23,9 +23,9 @@ from html.parser import HTMLParser
 # ── Configurazione ────────────────────────────────────────────────────────────
 DRAWS_FILE   = 'storico-estrazioni-superenalotto.json'
 VINCITE_FILE = 'vincite.json'
-DELAY_SEC    = 1.5    # pausa tra richieste
+DELAY_SEC    = 0.8    # pausa tra richieste
 MAX_ERRORS   = 8      # errori consecutivi prima di fermarsi
-MAX_NEW      = 500    # max nuove date per run (evita timeout GitHub Actions)
+MAX_NEW      = 1000    # max nuove date per run (evita timeout GitHub Actions)
 
 BASE_URL = 'https://www.superenalotto.com/risultati/estrazione-{d}-{m:02d}-{y}'
 
