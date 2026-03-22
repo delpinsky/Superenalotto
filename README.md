@@ -1,7 +1,7 @@
 # 🎰 SuperEnalotto — Analisi Statistica PWA
 
 [![GitHub Pages](https://img.shields.io/badge/Live-delpinsky.github.io%2FSuperenalotto-brightgreen)](https://delpinsky.github.io/Superenalotto/)
-[![Version](https://img.shields.io/badge/versione-v1.0.10-blue)]()
+[![Version](https://img.shields.io/badge/versione-v1.0.17-blue)]()
 [![License](https://img.shields.io/badge/licenza-uso%20personale-lightgrey)]()
 
 App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEnalotto. Scarica l'intero storico dal 1997 ad oggi direttamente da superenalotto.com, costruisce un database locale nel browser e offre strumenti statistici, previsioni AI e sistemi di gioco.
@@ -20,6 +20,7 @@ App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEna
 - **Sistema di gioco** — Integrale e Ridotto (G3/G4/G5) con calcolo combinazioni
 - **Cerca estrazione** — per data o numero concorso
 - **Schedine preferite** — salva, carica, esporta/importa JSON
+- **Vincite concorso** — tabella collassabile con Quote SuperEnalotto, SuperStar e WinBox
 - **PWA installabile** — funziona offline su Android e desktop
 - **Dark/Light mode** — rilevamento automatico del tema OS
 
@@ -79,16 +80,38 @@ voglio numeri freddi degli ultimi due anni
 
 ## 📋 Changelog
 
-### v1.0.10 — 2026-03-21
+### v1.0.17 — 2026-03-22
+- **Sezione vincite parte chiusa** — la tabella "📊 Vincite concorso" è collassata di default, si apre cliccando
+- **Rinominata** da "Montepremi concorso" a "Vincite concorso"
+- **Quote WinBox in fondo** — ordine sezioni: Quote SuperEnalotto → Quote SuperStar → Quote WinBox
 
-- Dopo aver premuto "✓ Attiva" con un codice valido, ora avviene in sequenza:
-- Il messaggio cambia subito in "✓ Codice valido! Caricamento database in corso…"
-- Scarica il database raw da GitHub (lo stesso file che viene caricato al boot per i donatori)
-- Ricostruisce draws[], freq[], aggiorna le pillole anni, le statistiche e le sezioni previsioni
-- Chiama fetchJackpotOnly() per aggiornare il jackpot
-- Chiama fetchLastDraw() per controllare e mostrare automaticamente l'ultima estrazione
-- Il messaggio finale mostra il numero di estrazioni caricate
-- La sezione donazione si nasconde dopo 2 secondi
+### v1.0.16 — 2026-03-22
+- **Fix hook vincite** — il file conteneva due copie di `showLastDrawFromDB` e `fetchLastDraw`; JS usa sempre l'ultima definizione, quindi i hook nella prima copia venivano ignorati. Aggiunto `fetchWinnings` in tutte e 4 le posizioni attive
+- **Log diagnostici** dettagliati in console per ogni proxy tentato
+
+### v1.0.15 — 2026-03-22
+- **Log diagnostici** per `fetchWinnings`: proxy index, URL, status HTTP, lunghezza risposta, sezioni trovate
+- **Fallback link** a superenalotto.com se tutti i proxy falliscono
+
+### v1.0.14 — 2026-03-22
+- **Fix `GIST_ID_KEY is not defined`** — le costanti `GH_REPO`, `GH_FILE`, `GH_TOKEN_KEY`, `DONATION_KEY`, `GIST_ID_KEY`, `DONATION_SECRET`, `GH_API` erano dichiarate in fondo allo script ma usate molto prima; spostate nel blocco `CONSTANTS` iniziale
+
+### v1.0.13 — 2026-03-22
+- **Fix URL vincite** — formato corretto `estrazione-D-MM-YYYY` (giorno senza zero iniziale, mese con zero)
+- Log dettagliati aggiuntivi per debug proxy
+
+### v1.0.12 — 2026-03-22
+- **Tabella vincite concorso** — scraping da `superenalotto.com/risultati/estrazione-DD-MM-YYYY` (stesso dominio già usato per lo storico, HTML statico)
+- Parser `parseWinningsHtml`: trova sezioni `<h2>` con "Quote" e le rispettive tabelle
+- Sezione collassabile con animazione `max-height`, si apre automaticamente con l'ultima estrazione
+- Tre sezioni: Quote SuperEnalotto, Quote SuperStar, Quote WinBox
+- Fallback discreto "dati vincite non disponibili" se tutti i proxy falliscono
+
+### v1.0.11 — 2026-03-22
+- Prima implementazione sezione vincite (su Sisal — poi abbandonata perché usa JS rendering)
+
+### v1.0.10 — 2026-03-22
+- **Auto-caricamento database dopo codice donazione** — dopo "✓ Attiva" con codice valido: scarica il DB raw da GitHub, ricostruisce `draws[]`/`freq[]`, aggiorna pillole anni, statistiche, sezioni previsioni, jackpot e ultima estrazione automaticamente senza F5
 
 ### v1.0.9 — 2026-03-21
 - **Nuova sezione "🤖 Previsioni di ChatGPT"** — integrata con parser NLP identico a Claude
