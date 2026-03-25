@@ -1,22 +1,13 @@
-name: Aggiorna Database Vincite SuperEnalotto
+name: Fix P6 Database Vincite
 
 on:
-  workflow_dispatch:
-  # Dopo ogni aggiornamento estrazioni
-  workflow_run:
-    workflows: ["Aggiorna Database SuperEnalotto"]
-    types: [completed]
-  # Schedule settimanale sabato alle 21:30 UTC
-  schedule:
-    - cron: '30 21 * * 6'
+  workflow_dispatch:  # solo manuale
 
 jobs:
-  # ── FASE 1: 6 job paralleli, ognuno su un range di 5 anni ────────────────
-  scrape:
+  fix-p6:
     runs-on: ubuntu-latest
-    if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     strategy:
-      fail-fast: false   # se un job fallisce, gli altri continuano
+      fail-fast: false
       matrix:
         years:
           - "1997-2001"
@@ -30,39 +21,36 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Scraping vincite ${{ matrix.years }}
-        run: python update_vincite.py --years ${{ matrix.years }}
+      - name: Fix p6 per anni ${{ matrix.years }}
+        run: python update_vincite.py --years ${{ matrix.years }} --fix-p6
 
       - name: Upload file parziale
         uses: actions/upload-artifact@v4
         with:
-          name: vincite-${{ matrix.years }}
+          name: vincite-fix-${{ matrix.years }}
           path: vincite_${{ matrix.years }}.json
           retention-days: 1
 
-  # ── FASE 2: merge di tutti i file parziali in vincite.json ───────────────
   merge:
-    needs: scrape
+    needs: fix-p6
     runs-on: ubuntu-latest
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Download tutti i file parziali
+      - name: Download file parziali
         uses: actions/download-artifact@v4
         with:
-          pattern: vincite-*
+          pattern: vincite-fix-*
           merge-multiple: true
 
       - name: Merge in vincite.json
@@ -73,5 +61,5 @@ jobs:
           git config user.name  "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add vincite.json
-          git diff --cached --quiet || git commit -m "Aggiornamento vincite concorsi [skip ci]"
+          git diff --cached --quiet || git commit -m "Fix p6 database vincite [skip ci]"
           git push
