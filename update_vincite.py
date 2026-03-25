@@ -93,6 +93,15 @@ def parse_quote(text):
         return None
 
 
+def parse_vincitori(text):
+    """Estrae numero vincitori dalla cella (es. '23.212' → 23212)"""
+    text = str(text).strip().replace('.', '').replace(',', '').replace(' ', '')
+    try:
+        return int(text)
+    except ValueError:
+        return None
+
+
 def parse_page(html):
     parser = WinningsParser()
     parser.feed(html)
@@ -103,7 +112,18 @@ def parse_page(html):
     keys = ['p6','p5j','p5','p4','p3','p2']
     result = {}
     for i, key in enumerate(keys):
-        result[key] = parse_quote(rows[i][1]) if i < len(rows) and len(rows[i]) >= 2 else None
+        if i >= len(rows) or len(rows[i]) < 2:
+            result[key] = None
+            continue
+        prize_text   = rows[i][1]
+        winners_text = rows[i][2] if len(rows[i]) > 2 else ''
+        winners = parse_vincitori(winners_text)
+        # FIX: se vincitori == 0, il valore mostrato è il jackpot accumulato,
+        # non un premio unitario reale → forza None
+        if winners == 0:
+            result[key] = None
+        else:
+            result[key] = parse_quote(prize_text)
     return result if any(v is not None for v in result.values()) else None
 
 
@@ -190,9 +210,47 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('--years', help='Range anni es. 1997-2001')
     parser.add_argument('--merge', action='store_true', help='Merge file parziali in vincite.json')
+    parser.add_argument('--fix-p6', action='store_true', help='Riprocessa voci con p6 non-null (bug jackpot)')
     args = parser.parse_args()
 
     # ── MERGE mode ───────────────────────────────────────────────────────────
+    # ── FIX-P6 mode: riprocessa voci con p6 errato ──────────────────────────
+    if getattr(args, 'fix_p6', False):
+        print('Fix-p6: riprocesso voci con p6 non-null...')
+        if not os.path.exists(VINCITE_FILE):
+            print('vincite.json non trovato')
+            return
+        with open(VINCITE_FILE) as f:
+            data = json.load(f)
+        vincite = data.get('vincite', {})
+        # Trova tutte le voci con p6 non-null (probabilmente errate)
+        to_fix = [d for d, v in vincite.items() if v and isinstance(v, dict) and v.get('p6') is not None]
+        print(f'  {len(to_fix)} voci con p6 non-null da verificare')
+        fixed = 0
+        for i, date_str in enumerate(to_fix):
+            url = build_url(date_str)
+            print(f'[{i+1}/{len(to_fix)}] {date_str}', end=' ', flush=True)
+            html = fetch_via_proxy(url)
+            if html:
+                quote = parse_page(html)
+                if quote:
+                    old_p6 = vincite[date_str].get('p6')
+                    if quote.get('p6') != old_p6:
+                        print(f'→ FIXED p6: {old_p6} → {quote.get("p6")}')
+                        vincite[date_str] = quote
+                        fixed += 1
+                    else:
+                        print(f'→ OK (p6={old_p6} confermato)')
+                else:
+                    print('→ parse fail')
+            else:
+                print('→ fetch fail')
+            if i < len(to_fix) - 1:
+                time.sleep(DELAY_SEC)
+        print(f'\nFixed {fixed} voci')
+        save_vincite(vincite)
+        return
+
     if args.merge:
         print('Merge file parziali...')
         all_vincite = {}
