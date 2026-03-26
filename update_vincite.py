@@ -127,18 +127,28 @@ def parse_page(html):
     return result if any(v is not None for v in result.values()) else None
 
 
-def fetch_via_proxy(target_url):
-    for proxy_fn in PROXIES:
-        url = proxy_fn(target_url)
-        try:
-            req = urllib.request.Request(url, headers=HEADERS)
-            with urllib.request.urlopen(req, timeout=25) as resp:
-                html = resp.read().decode('utf-8', errors='ignore')
-                if len(html) > 1000 and ('Quote' in html or 'punti' in html):
-                    return html
-        except Exception:
-            pass
-        time.sleep(0.3)
+def fetch_via_proxy(target_url, aggressive=False):
+    """
+    Scarica tramite proxy CORS.
+    Se aggressive=True: 3 round di tutti i proxy con delay crescente.
+    """
+    rounds = 3 if aggressive else 1
+    for round_n in range(rounds):
+        if round_n > 0:
+            wait = round_n * 4  # 4s, 8s tra i round
+            print(f'  [retry round {round_n+1}/{rounds}, attendo {wait}s]', end=' ', flush=True)
+            time.sleep(wait)
+        for proxy_fn in PROXIES:
+            url = proxy_fn(target_url)
+            try:
+                req = urllib.request.Request(url, headers=HEADERS)
+                with urllib.request.urlopen(req, timeout=25) as resp:
+                    html = resp.read().decode('utf-8', errors='ignore')
+                    if len(html) > 1000 and ('Quote' in html or 'punti' in html):
+                        return html
+            except Exception:
+                pass
+            time.sleep(0.5 if aggressive else 0.3)
     return None
 
 
@@ -211,10 +221,33 @@ def main():
     parser.add_argument('--years', help='Range anni es. 1997-2001')
     parser.add_argument('--merge', action='store_true', help='Merge file parziali in vincite.json')
     parser.add_argument('--fix-p6', action='store_true', help='Riprocessa voci con p6 non-null (bug jackpot)')
+    parser.add_argument('--reset-empty', action='store_true', help='Rimuovi le entry vuote {} per forzare il riprocessing')
+    parser.add_argument('--from-date', help='Data inizio per --reset-empty (YYYY-MM-DD)')
+    parser.add_argument('--retry-year', help='Anno da riprocessare forzatamente (es. 2026)')
     args = parser.parse_args()
 
     # ── MERGE mode ───────────────────────────────────────────────────────────
-    # ── FIX-P6 mode: riprocessa voci con p6 errato ──────────────────────────
+    # ── RESET-EMPTY mode: rimuovi entry vuote per forzare riprocessing ─────
+    if getattr(args, 'reset_empty', False):
+        if not os.path.exists(VINCITE_FILE):
+            print('vincite.json non trovato'); return
+        with open(VINCITE_FILE) as f:
+            data = json.load(f)
+        vincite = data.get('vincite', {})
+        from_date = getattr(args, 'from_date', None)
+        removed = []
+        for d, v in list(vincite.items()):
+            if (v == {} or v is None) and (not from_date or d >= from_date):
+                removed.append(d)
+                del vincite[d]
+        print(f'Rimossi {len(removed)} entry vuote (da {from_date or "inizio"})')
+        if removed: print(f'  Prima: {removed[0]}  Ultima: {removed[-1]}')
+        save_vincite(vincite)
+        print('Ora rilancia il workflow per riprocessarle.')
+        return
+
+    # ── FIX-P6 mode:
+        # ── FIX-P6 mode: riprocessa voci con p6 errato ──────────────────────────
     if getattr(args, 'fix_p6', False):
         print('Fix-p6: riprocesso voci con p6 non-null...')
         if not os.path.exists(VINCITE_FILE):
@@ -271,6 +304,52 @@ def main():
             os.remove(fn)
             print(f'  Rimosso {fn}')
         save_vincite(all_vincite)
+        return
+
+    # ── RETRY-YEAR mode: riprocessa un anno con retry aggressivo ────────────
+    if getattr(args, 'retry_year', None):
+        year = args.retry_year
+        if not os.path.exists(VINCITE_FILE):
+            print('vincite.json non trovato'); return
+        with open(VINCITE_FILE) as f:
+            data = json.load(f)
+        vincite = data.get('vincite', {})
+
+        all_dates = load_draws()
+        year_dates = [d for d in all_dates if d.startswith(year)]
+        missing = [d for d in year_dates if d not in vincite or vincite[d] == {}]
+        print(f'Anno {year}: {len(year_dates)} estrazioni totali, {len(missing)} da riprocessare')
+
+        if not missing:
+            print(f'Tutte le estrazioni del {year} sono già presenti nel database!')
+            return
+
+        scraped = 0
+        for i, date_str in enumerate(missing):
+            url = build_url(date_str)
+            print(f'[{i+1}/{len(missing)}] {date_str}', end=' ', flush=True)
+            # Usa fetch aggressivo con 3 round di retry
+            html = fetch_via_proxy(url, aggressive=True)
+            if html:
+                quote = parse_page(html)
+                if quote:
+                    vincite[date_str] = quote
+                    print(f'→ OK  p5={quote.get("p5")}  p3={quote.get("p3")}')
+                    scraped += 1
+                else:
+                    vincite[date_str] = {}
+                    print('→ pagina trovata ma dati non parsabili (estr. troppo vecchia?)')
+            else:
+                vincite[date_str] = {}
+                print('→ FAIL dopo tutti i retry')
+            if i < len(missing) - 1:
+                time.sleep(DELAY_SEC)
+
+        save_vincite(vincite)
+        still_missing = [d for d in year_dates if vincite.get(d) == {}]
+        print(f'\nCompletato: +{scraped} aggiunte, {len(still_missing)} ancora mancanti')
+        if still_missing:
+            print(f'Date ancora vuote: {still_missing}')
         return
 
     # ── SCRAPE mode ──────────────────────────────────────────────────────────
