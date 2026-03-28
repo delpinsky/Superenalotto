@@ -18,7 +18,10 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC    = 1.0
 MAX_ERRORS   = 10
 
-BASE_URL = 'https://www.superenalotto.com/risultati/estrazione-{d}-{m:02d}-{y}'
+BASE_URL      = 'https://www.superenalotto.com/risultati/estrazione-{d}-{m:02d}-{y}'
+BASE_URL_IT   = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
+MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
+           'luglio','agosto','settembre','ottobre','novembre','dicembre']
 
 PROXIES = [
     lambda u: f'https://api.allorigins.win/raw?url={urllib.parse.quote(u)}&_={int(time.time())}',
@@ -127,6 +130,31 @@ def parse_page(html):
     return result if any(v is not None for v in result.values()) else None
 
 
+def parse_page_it(html):
+    """
+    Parser per superenalotto.it — tabella con intestazioni CATEGORIA/VINCITORI/VALORI IN EURO
+    """
+    parser = WinningsParser()
+    # superenalotto.it usa 'Quote SuperEnalotto' come h2
+    parser.feed(html)
+    rows = [r for r in parser.rows
+            if r[0] and r[0].lower().strip() not in ('categoria','vincitori','valori in euro','')]
+    if len(rows) < 4:
+        return None
+    # Struttura: Punti 6 / Punti 5+1 / Punti 5 / Punti 4 / Punti 3 / Punti 2
+    # Colonne: [0]=categoria [1]=vincitori [2]=valore
+    keys = ['p6','p5j','p5','p4','p3','p2']
+    result = {}
+    for i, key in enumerate(keys):
+        if i >= len(rows) or len(rows[i]) < 3:
+            result[key] = None
+            continue
+        winners_text = rows[i][1]
+        prize_text   = rows[i][2]
+        winners = parse_vincitori(winners_text)
+        result[key] = None if winners == 0 else parse_quote(prize_text)
+    return result if any(v is not None for v in result.values()) else None
+
 def fetch_via_proxy(target_url, aggressive=False):
     """
     Scarica tramite proxy CORS.
@@ -156,9 +184,16 @@ def build_url(date_str):
     y, m, d = date_str.split('-')
     return BASE_URL.format(d=int(d), m=int(m), y=y)
 
+def build_url_it(date_str, concorso_n):
+    """URL per superenalotto.it (richiede numero concorso)"""
+    y, m, d = date_str.split('-')
+    mese = MESI_IT[int(m)]
+    return BASE_URL_IT.format(d=int(d), mese=mese, y=y, n=concorso_n)
+
 
 def scrape(dates, existing):
     """Scrapa le date mancanti e ritorna dict aggiornato."""
+    concorso_map = load_draws_with_concorso()  # per fallback su superenalotto.it
     missing = [d for d in dates if d not in existing or existing[d] == {}]
     print(f'Date da scrapare: {len(missing)} su {len(dates)}')
     consecutive_errors = 0
@@ -170,11 +205,20 @@ def scrape(dates, existing):
 
         html = fetch_via_proxy(url)
         if html is None:
+            # Fallback: prova superenalotto.it con numero concorso
+            concorso_n = concorso_map.get(date_str)
+            if concorso_n:
+                url_it = build_url_it(date_str, concorso_n)
+                html = fetch_via_proxy(url_it)
+                if html:
+                    print('[superenalotto.it]', end=' ', flush=True)
+        if html is None:
             print('→ FAIL')
             existing[date_str] = {}
             consecutive_errors += 1
         else:
-            quote = parse_page(html)
+            # Prova prima il parser di .com, poi quello di .it
+            quote = parse_page(html) or parse_page_it(html)
             if quote:
                 existing[date_str] = quote
                 print(f'→ OK  p5={quote.get("p5")}  p3={quote.get("p3")}')
@@ -200,6 +244,17 @@ def load_draws():
         data = json.load(f)
     draws = data.get('draws', data) if isinstance(data, dict) else data
     return sorted(set(d['date'] for d in draws))
+
+def load_draws_with_concorso():
+    """Ritorna dict {date: concorso_number} per uso con superenalotto.it"""
+    with open(DRAWS_FILE, 'r', encoding='utf-8') as f:
+        data = json.load(f)
+    draws = data.get('draws', data) if isinstance(data, dict) else data
+    result = {}
+    for d in draws:
+        if 'concorso' in d and d['concorso']:
+            result[d['date']] = d['concorso']
+    return result
 
 
 def save_vincite(vincite, filename=None):
@@ -330,8 +385,15 @@ def main():
             print(f'[{i+1}/{len(missing)}] {date_str}', end=' ', flush=True)
             # Usa fetch aggressivo con 3 round di retry
             html = fetch_via_proxy(url, aggressive=True)
+            if html is None:
+                concorso_map = load_draws_with_concorso()
+                concorso_n = concorso_map.get(date_str)
+                if concorso_n:
+                    url_it = build_url_it(date_str, concorso_n)
+                    print('[superenalotto.it fallback]', end=' ', flush=True)
+                    html = fetch_via_proxy(url_it, aggressive=True)
             if html:
-                quote = parse_page(html)
+                quote = parse_page(html) or parse_page_it(html)
                 if quote:
                     vincite[date_str] = quote
                     print(f'→ OK  p5={quote.get("p5")}  p3={quote.get("p3")}')
