@@ -2,50 +2,94 @@ name: Aggiorna Database Vincite SuperEnalotto
 
 on:
   workflow_dispatch:
-  # Dopo ogni aggiornamento estrazioni
+    inputs:
+      from_year:
+        description: 'Da quale anno partire (lascia vuoto per tutte le date mancanti)'
+        required: false
+        default: ''
+      retry_empty:
+        description: 'Riprova le date con {} (true/false)'
+        required: false
+        default: 'false'
+  # Esegui dopo il workflow principale estrazioni
   workflow_run:
     workflows: ["Aggiorna Database SuperEnalotto"]
     types: [completed]
-  # Schedule settimanale sabato alle 21:30 UTC
+  # Schedule: sabato 22:00 UTC
   schedule:
-    - cron: '30 21 * * 6'
+    - cron: '0 22 * * 6'
 
 jobs:
-  # ── FASE 1: 6 job paralleli, ognuno su un range di 5 anni ────────────────
+  # ── FASE 1: 6 job paralleli, ognuno su un range di anni ──────────────────
   scrape:
     runs-on: ubuntu-latest
     if: ${{ github.event_name != 'workflow_run' || github.event.workflow_run.conclusion == 'success' }}
     strategy:
-      fail-fast: false   # se un job fallisce, gli altri continuano
+      fail-fast: false
       matrix:
-        years:
-          - "1997-2001"
-          - "2002-2006"
-          - "2007-2011"
-          - "2012-2016"
-          - "2017-2021"
-          - "2022-2026"
+        range:
+          - { from: "1997", to: "2001" }
+          - { from: "2002", to: "2006" }
+          - { from: "2007", to: "2011" }
+          - { from: "2012", to: "2016" }
+          - { from: "2017", to: "2021" }
+          - { from: "2022", to: "2026" }
     permissions:
       contents: write
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: Scraping vincite ${{ matrix.years }}
-        run: python update_vincite.py --years ${{ matrix.years }}
+      - name: Scraping vincite ${{ matrix.range.from }}-${{ matrix.range.to }}
+        run: |
+          # Costruisci argomenti dinamicamente
+          ARGS="--from-year ${{ matrix.range.from }}"
+          if [ "${{ github.event.inputs.retry_empty }}" = "true" ]; then
+            ARGS="$ARGS --retry-empty"
+          fi
+          # Copia vincite.json in un file parziale per questo range
+          # Lo script processa anno per anno e salva dopo ogni anno
+          # Per la modalità parallela, lavoriamo su una copia parziale
+          python - << 'EOF'
+          import json, subprocess, sys, os
+
+          # Leggi vincite.json esistente
+          vincite_all = {}
+          if os.path.exists('vincite.json'):
+              with open('vincite.json') as f:
+                  data = json.load(f)
+              vincite_all = data.get('vincite', {})
+
+          # Filtra solo le date del range
+          from_year = '${{ matrix.range.from }}'
+          to_year   = '${{ matrix.range.to }}'
+          vincite_range = {k:v for k,v in vincite_all.items()
+                           if from_year <= k[:4] <= to_year}
+
+          # Salva come vincite.json temporaneo per lo script
+          with open('vincite.json', 'w') as f:
+              json.dump({'version':1,'updated':'','count':0,'vincite':vincite_range},
+                        f, separators=(',',':'))
+          print(f'Range {from_year}-{to_year}: {len(vincite_range)} quote esistenti')
+          EOF
+
+          # Esegui scraping
+          python update_vincite.py --from-year ${{ matrix.range.from }} $( [ "${{ github.event.inputs.retry_empty }}" = "true" ] && echo "--retry-empty" )
+
+          # Rinomina output per il merge
+          mv vincite.json vincite_${{ matrix.range.from }}-${{ matrix.range.to }}.json
 
       - name: Upload file parziale
         uses: actions/upload-artifact@v4
         with:
-          name: vincite-${{ matrix.years }}
-          path: vincite_${{ matrix.years }}.json
+          name: vincite-${{ matrix.range.from }}-${{ matrix.range.to }}
+          path: vincite_${{ matrix.range.from }}-${{ matrix.range.to }}.json
           retention-days: 1
 
-  # ── FASE 2: merge di tutti i file parziali in vincite.json ───────────────
+  # ── FASE 2: merge di tutti i file parziali ───────────────────────────────
   merge:
     needs: scrape
     runs-on: ubuntu-latest
@@ -54,7 +98,6 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -66,7 +109,39 @@ jobs:
           merge-multiple: true
 
       - name: Merge in vincite.json
-        run: python update_vincite.py --merge
+        run: |
+          python - << 'EOF'
+          import json, glob, os
+          from datetime import datetime
+
+          all_vincite = {}
+          # Carica vincite.json principale se esiste
+          if os.path.exists('vincite.json'):
+              with open('vincite.json') as f:
+                  data = json.load(f)
+              all_vincite = data.get('vincite', {})
+              print(f'Base: {len(all_vincite)} entries')
+
+          # Merge tutti i file parziali
+          for fn in sorted(glob.glob('vincite_*-*.json')):
+              with open(fn) as f:
+                  partial = json.load(f)
+              entries = partial.get('vincite', {})
+              all_vincite.update(entries)
+              print(f'Merge {fn}: +{len(entries)} entries')
+              os.remove(fn)
+
+          valid = len([v for v in all_vincite.values() if v and v != {}])
+          out = {
+              'version': 1,
+              'updated': datetime.utcnow().isoformat() + 'Z',
+              'count': valid,
+              'vincite': dict(sorted(all_vincite.items()))
+          }
+          with open('vincite.json', 'w') as f:
+              json.dump(out, f, separators=(',',':'), ensure_ascii=False)
+          print(f'Salvato vincite.json: {valid} quote valide su {len(all_vincite)} totali')
+          EOF
 
       - name: Commit e push
         run: |
