@@ -302,6 +302,7 @@ def main():
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument('--year',        help='Solo questo anno (es. 2026)')
     ap.add_argument('--from-year',   help='Da questo anno in poi (es. 2010)')
+    ap.add_argument('--to-year',     help='Fino a questo anno incluso (es. 2006)')
     ap.add_argument('--retry-empty', action='store_true',
                     help='Riprova le date con {} (precedentemente fallite)')
     ap.add_argument('--aggressive',  action='store_true',
@@ -321,12 +322,11 @@ def main():
     # Seleziona anni da processare
     if args.year:
         years = [int(args.year)]
-    elif args.from_year:
-        first = int(args.from_year)
-        years = list(range(first, datetime.now().year + 1))
     else:
         all_years = sorted(set(d['date'][:4] for d in all_draws))
-        years = [int(y) for y in all_years]
+        first = int(args.from_year) if args.from_year else int(all_years[0])
+        last  = int(args.to_year)   if args.to_year   else int(all_years[-1])
+        years = list(range(first, last + 1))
 
     # Processa anno per anno
     total_scraped = total_failed = 0
