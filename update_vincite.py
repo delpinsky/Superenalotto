@@ -33,7 +33,7 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
-BASE_URL_COM = 'https://www.superenalotto.com/risultati/estrazione-{d}-{m:02d}-{y}'
+BASE_URL_COM = 'https://www.superenalotto.com/risultati/estrazione-{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
