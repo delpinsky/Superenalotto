@@ -2149,7 +2149,7 @@ function renderSearchDraw(dr, index) {
       const cc = isJackpot ? 'color:var(--gold);font-weight:600' : noWin ? 'color:var(--muted)' : 'color:var(--text)';
       const vc = isJackpot ? 'color:var(--gold);font-weight:600' : noWin ? 'color:var(--muted)' : 'color:var(--text);font-weight:500';
       tHtml += `<tr style="${bg}"><td style="padding:5px 6px;${cc}">${r.cat}</td>`
-             + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(val, dateStr)}</td></tr>`;
+             + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(val, dr.date)}</td></tr>`;
     });
     tHtml += '</tbody></table>';
     vBody.innerHTML = tHtml;
