@@ -109,8 +109,13 @@ class WinningsParser(HTMLParser):
 
 
 def parse_quote(text):
-    """'52.205,24 €' → 52205.24,  '-' → None"""
-    text = str(text).strip().replace('€','').replace('\xa0','').replace('\u00a0','').strip()
+    """'52.205,24 €' → 52205.24,  '880.400,00 L' → 880400.0,  '-' → None"""
+    text = str(text).strip()
+    # Rimuovi simboli valuta (€ e L per Lire)
+    text = text.replace('€','').replace('\xa0','').replace('\u00a0','')
+    # Rimuovi 'L' finale (Lire) — solo se preceduta da cifra o spazio
+    import re as _re
+    text = _re.sub(r'\s*L\s*$', '', text).strip()
     if not text or text in ('-','—','N/D','–'):
         return None
     try:
@@ -134,8 +139,8 @@ def _extract_quotes(rows):
     """
     skip = {'premio','categoria','vincitori','valori in euro',''}
     rows = [r for r in rows if r[0].lower().strip() not in skip]
-    if len(rows) < 4:
-        return None
+    if len(rows) < 2:
+        return None  # meno di 2 righe dati → sicuramente vuota
 
     # Determina formato: se col[1] è numerico (vincitori) → formato .it
     def is_numeric(s):
