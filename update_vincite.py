@@ -108,18 +108,26 @@ class WinningsParser(HTMLParser):
             self.current_text += data
 
 
+# Tasso di conversione Lire → Euro (fisso dal 1 gennaio 1999)
+_LIRE_TO_EURO = 1.0 / 1936.27
+
 def parse_quote(text):
-    """'52.205,24 €' → 52205.24,  '880.400,00 L' → 880400.0,  '-' → None"""
-    text = str(text).strip()
-    # Rimuovi simboli valuta (€ e L per Lire)
-    text = text.replace('€','').replace('\xa0','').replace('\u00a0','')
-    # Rimuovi 'L' finale (Lire) — solo se preceduta da cifra o spazio
+    """'52.205,24 €' → 52205.24,  '880.400,00 L' → 454.71 (lire→euro),  '-' → None"""
+    text = str(text).strip().replace('\xa0','').replace('\u00a0','')
+    # Rileva se è in Lire (termina con L o lire)
     import re as _re
+    is_lire = bool(_re.search(r'\bL\s*$', text))
+    text = text.replace('€','')
     text = _re.sub(r'\s*L\s*$', '', text).strip()
     if not text or text in ('-','—','N/D','–'):
         return None
     try:
-        return float(text.replace('.','').replace(',','.')) or None
+        val = float(text.replace('.','').replace(',','.'))
+        if not val:
+            return None
+        if is_lire:
+            val = round(val * _LIRE_TO_EURO, 2)
+        return val
     except ValueError:
         return None
 
