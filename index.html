@@ -3152,15 +3152,17 @@ function generateClaudePrevisione(ctx, hint) {
       const numWords = {uno:1,una:1,'un ':1,due:2,tre:3,quattro:4,cinque:5,sei:6,
         sette:7,otto:8,nove:9,dieci:10,undici:11,dodici:12};
       let t = text.toLowerCase();
-      Object.entries(numWords).forEach(([w,n]) => { t = t.replace(new RegExp('\\b'+w+'\\b','g'), String(n)); });
+      Object.entries(numWords).forEach(([w,n]) => {
+        t = t.replace(new RegExp('\\b'+w+'\\b','g'), String(n));
+      });
       const found = [];
-      if (/ultimo\s*mese|(?<![\d])1\s*mes[ei]/i.test(t)) found.push(1);
+      if (/ultimo\s*mese/i.test(t) && !found.includes(1)) found.push(1);
       const mM = [...t.matchAll(/ultimi?\s*(\d+)\s*mes[ei]/gi)];
       mM.forEach(m => { const v=parseInt(m[1]); if(!found.includes(v)) found.push(v); });
       const mA = [...t.matchAll(/(\d+)\s*ann[io]/gi)];
       mA.forEach(m => { const v=parseInt(m[1])*12; if(!found.includes(v)) found.push(v); });
       if (/storico/i.test(t)) found.push(0);
-      return found.sort((a,b) => (a===0?9999:a)-(b===0?9999:b));
+      return found.sort((a,b)=>(a===0?9999:a)-(b===0?9999:b));
     }
 
     const periods = extractPeriods(hintLow);
@@ -3174,10 +3176,10 @@ function generateClaudePrevisione(ctx, hint) {
       const sub = subsetForPeriod(months);
       if (sub.length < 5) return;
       const label = months===0 ? 'Storico'
-        : months<12 ? `${months} ${months===1?'mese':'mesi'}`
+        : months<12  ? `${months} ${months===1?'mese':'mesi'}`
         : months%12===0 ? `${months/12} ${months===12?'anno':'anni'}`
         : `${months} mesi`;
-      analysisLines.push(`── ${label.toUpperCase()} (${sub.length} estrazioni) ──`);
+      analysisLines.push(`\u2500\u2500 ${label.toUpperCase()} (${sub.length} estrazioni) \u2500\u2500`);
       const cols = [[],[],[],[],[],[]];
       sub.forEach(dr => {
         const sorted = dr.nums.slice().sort((a,b)=>a-b);
@@ -3188,12 +3190,12 @@ function generateClaudePrevisione(ctx, hint) {
         const mean = +(col.reduce((s,x)=>s+x,0)/col.length).toFixed(1);
         const exp  = expectedCol[c];
         const diff = +(mean-exp).toFixed(1);
-        const arrow = diff>4?'⬆':diff<-4?'⬇':'=';
+        const arrow = diff>4?'\u2b06':diff<-4?'\u2b07':'=';
         const freq = {};
         col.forEach(n => freq[n]=(freq[n]||0)+1);
         const top3 = Object.entries(freq).sort((a,b)=>b[1]-a[1]).slice(0,3);
-        const topStr = top3.map(([n,f])=>`${n}(${f}×)`).join(' ');
-        analysisLines.push(`  C${c+1}: μ=${mean} (att.${exp} ${diff>=0?'+':''}${diff}) ${arrow}  » ${topStr}`);
+        const topStr = top3.map(([n,f])=>`${n}(${f}\u00d7)`).join('  ');
+        analysisLines.push(`  C${c+1}: \u03bc=${mean} (att.${exp} ${diff>=0?'+':''}${diff}) ${arrow}   \u00bb ${topStr}`);
         top3.forEach(([n],rank) => { votes[+n]+=(3-rank); });
         if (Math.abs(diff)>5) {
           if (!anomalyCols[c+1]) anomalyCols[c+1]=[];
@@ -3205,11 +3207,10 @@ function generateClaudePrevisione(ctx, hint) {
     const anomKeys = Object.keys(anomalyCols);
     if (anomKeys.length) {
       analysisLines.push('');
-      analysisLines.push('⚠ ANOMALIE STRUTTURALI:');
+      analysisLines.push('\u26a0 ANOMALIE STRUTTURALI:');
       anomKeys.forEach(c => {
         anomalyCols[c].forEach(a => {
-          const dir = a.diff>0?'sopra':'sotto';
-          analysisLines.push(`  Col ${c}: ${dir} la media (${a.diff>0?'+':''}${a.diff}) su ${a.label}`);
+          analysisLines.push(`  Col ${c}: ${a.diff>0?'sopra':'sotto'} la media (${a.diff>0?'+':''}${a.diff}) su ${a.label}`);
         });
       });
     }
@@ -3224,7 +3225,7 @@ function generateClaudePrevisione(ctx, hint) {
         .filter(n=>n>=lo&&n<=hi&&!used.has(n))
         .sort((a,b)=>votes[b]-votes[a])[0] || (lo+Math.round((hi-lo)/2));
       used.add(best); schedina.push(best);
-      picks.push(`C${c+1}[${lo}-${hi}]: ${best} (${votes[best]}pt)`);
+      picks.push(`C${c+1} [${lo}-${hi}]: ${best}  (${votes[best]} pt)`);
     }
     schedina.sort((a,b)=>a-b);
 
@@ -3235,13 +3236,13 @@ function generateClaudePrevisione(ctx, hint) {
       .sort((a,b)=>(ls2[a]===-1?-1:ls2[a])-(ls2[b]===-1?-1:ls2[b]))[0];
 
     const reasoning =
-      `Analisi per colonna su ${activePeriods.length} periodi:\n\n`+
-      analysisLines.join('\n')+
-      `\n\nSelezione finale:\n`+picks.join('\n')+
-      (anomKeys.length
-        ? `\n\n⚠ ${anomKeys.length} colonne mostrano anomalie strutturali rispetto all'atteso.`
-        : '\n\n✅ Nessuna anomalia strutturale rilevante.')+
-      `\n\n⚠ Il SuperEnalotto è casuale — analisi per divertimento! 🍀`;
+      `Analisi per colonna su ${activePeriods.length} periodo/i:\n\n`
+      + analysisLines.join('\n')
+      + `\n\nSelezione per colonna:\n` + picks.join('\n')
+      + (anomKeys.length
+          ? `\n\n\u26a0 ${anomKeys.length} colonne con anomalie strutturali rilevate.`
+          : '\n\n\u2705 Nessuna anomalia strutturale rilevante.')
+      + `\n\n\u26a0 Il SuperEnalotto \u00e8 casuale \u2014 analisi per divertimento! \ud83c\udf40`;
 
     return { nums: schedina, jolly: jollyC, ss: null, reasoning };
   }
