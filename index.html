@@ -12,7 +12,7 @@
   <link rel="apple-touch-icon" href="icons/icon-192.png">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, minimum-scale=1.0, viewport-fit=cover">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>SuperEnalotto — Analisi Statistica</title>
+<title>SuperEnalotto — Analisi Statistica v1.0.24</title>
 <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -297,6 +297,15 @@
   .method-stats{display:flex;gap:16px;flex-wrap:wrap}
   .mstat{font-size:11px;color:var(--muted)}
   .mstat strong{color:var(--text);font-family:'DM Mono',monospace}
+  /* ── Sigma deviation badges ── */
+  .fball-wrap{display:flex;flex-direction:column;align-items:center;gap:3px}
+  .sigma-badge{font-size:9px;font-family:'DM Mono',monospace;font-weight:600;letter-spacing:.4px;padding:1px 5px;border-radius:4px;white-space:nowrap;cursor:default}
+  .sigma-pos-strong{color:#f5a623;background:rgba(243,156,18,.18)}
+  .sigma-pos-mid{color:#e8c850;background:rgba(232,200,80,.13)}
+  .sigma-neutral{color:var(--muted);background:rgba(100,100,128,.13)}
+  .sigma-neg-mid{color:#7fb3d3;background:rgba(52,152,219,.13)}
+  .sigma-neg-strong{color:#5dade2;background:rgba(52,152,219,.2)}
+  .sigma-legend{margin-top:10px;font-size:10px;color:var(--muted);font-style:italic;opacity:.7}
 
   .pairs-table{width:100%;border-collapse:collapse;font-size:12px;margin-top:4px}
   .pairs-table th{text-align:left;color:var(--muted);font-weight:500;padding:4px 8px;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;border-bottom:1px solid var(--border)}
@@ -2243,43 +2252,82 @@ function topN(scored, n) {
   return result;
 }
 
+/* ── SIGMA: confronto con il caso atteso (Idea 1) ──────────────────────────
+   Per N estrazioni, ogni numero ha prob. p=6/90 di uscire in ciascuna.
+   Atteso μ = N·p,  deviazione standard σ = √(N·p·(1-p))
+   z-score = (osservato − μ) / σ
+─────────────────────────────────────────────────────────────────────────── */
+function calcSigma(observed, N) {
+  const p = 6 / 90;
+  const mu = N * p;
+  const sigma = Math.sqrt(N * p * (1 - p));
+  return { mu, sigma, z: (observed - mu) / sigma };
+}
+
+function sigmaBadge(z, mu, observed) {
+  if (isNaN(z) || !isFinite(z)) return '';
+  const sign = z >= 0 ? '+' : '';
+  const label = (Math.abs(z) < 0.5) ? '≈norma' : sign + z.toFixed(1) + 'σ';
+  const tooltip = `Atteso: ${mu.toFixed(1)}× · Osservato: ${observed}× · z = ${sign}${z.toFixed(2)}σ`;
+  let cls;
+  if      (z >  2)  cls = 'sigma-pos-strong';
+  else if (z >  1)  cls = 'sigma-pos-mid';
+  else if (z >= -1) cls = 'sigma-neutral';
+  else if (z >= -2) cls = 'sigma-neg-mid';
+  else              cls = 'sigma-neg-strong';
+  return `<span class="sigma-badge ${cls}" title="${tooltip}">${label}</span>`;
+}
+
 /* ── METHOD 1: HOT — most frequent numbers overall ── */
 function methodHot(sub) {
   sub = sub || draws;
+  const N = sub.length;
   const f=new Array(91).fill(0); sub.forEach(dr=>{dr.nums.forEach(n=>f[n]++);});
-  const scored = Array.from({length:90},(_,i)=>({num:i+1, score:f[i+1]}))
+  const scored = Array.from({length:90},(_,i)=>({num:i+1, score:f[i+1], rawFreq:f[i+1]}))
     .sort((a,b)=>b.score-a.score);
   const main6  = topN(scored, 6);
   const jolly  = topN(scored.filter(x=>!main6.find(m=>m.num===x.num)), 1)[0];
+  main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
+  if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
+  const muLabel = (N * 6 / 90).toFixed(1);
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'hot', label:'Hot Numbers', icon:'🔥', colorClass:'hot',
-    desc:'I 6 numeri estratti più spesso in assoluto nello storico completo.',
-    nums: main6, jolly,
-    statLabel: 'Freq. media: '+(main6.reduce((s,x)=>s+x.score,0)/6).toFixed(0)+'x'
+    desc:'I 6 numeri estratti più spesso nel periodo. La σ indica quanto ogni numero supera la media attesa per puro caso.',
+    nums: main6, jolly, N,
+    statLabel: `Atteso: <strong>${muLabel}×</strong> · Media osservata: <strong>${obsAvg}×</strong>`,
+    showSigma: true
   };
 }
 
 /* ── METHOD 2: COLD — most overdue (highest gap since last appearance) ── */
 function methodCold(sub) {
   sub = sub || draws;
+  const N = sub.length;
   const lastSeen = new Array(91).fill(-1);
+  const freq = new Array(91).fill(0);
   sub.forEach((dr, i) => {
-    dr.nums.forEach(n => lastSeen[n] = i);
+    dr.nums.forEach(n => { lastSeen[n] = i; freq[n]++; });
     if (dr.jolly) lastSeen[dr.jolly] = i;
   });
   const lastDraw = sub.length - 1;
   const scored = Array.from({length:90},(_,i)=>{
     const n = i+1;
     const gap = lastSeen[n] === -1 ? sub.length : (lastDraw - lastSeen[n]);
-    return {num:n, score:gap, lastDate: lastSeen[n]===-1?'mai':fmtD(sub[lastSeen[n]].date)};
+    return {num:n, score:gap, lastDate: lastSeen[n]===-1?'mai':fmtD(sub[lastSeen[n]].date), rawFreq:freq[n]};
   }).sort((a,b)=>b.score-a.score);
   const main6 = topN(scored, 6);
   const jolly = topN(scored.filter(x=>!main6.find(m=>m.num===x.num)), 1)[0];
+  main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
+  if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
+  const muLabel = (N * 6 / 90).toFixed(1);
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'cold', label:'Cold Numbers', icon:'❄️', colorClass:'cold',
-    desc:'I 6 numeri che mancano da più estrazioni consecutive (ritardo massimo).',
-    nums: main6, jolly,
-    statLabel: 'Ritardo medio: '+(main6.reduce((s,x)=>s+x.score,0)/6).toFixed(0)+' estr.',
+    desc:'I numeri con il ritardo maggiore. La σ (negativa) mostra quanto sono sotto la media attesa per puro caso.',
+    nums: main6, jolly, N,
+    statLabel: `Atteso: <strong>${muLabel}×</strong> · Media osservata: <strong>${obsAvg}×</strong>`,
+    showSigma: true,
     extra: main6.map(x=>({num:x.num, last:x.lastDate}))
   };
 }
@@ -2287,6 +2335,7 @@ function methodCold(sub) {
 /* ── METHOD 3: BALANCED — weighted mix of frequency + recency ── */
 function methodBalanced(sub) {
   sub = sub || draws;
+  const N = sub.length;
   const f=new Array(91).fill(0), lastSeen=new Array(91).fill(-1);
   sub.forEach((dr,i)=>{dr.nums.forEach(n=>{f[n]++;lastSeen[n]=i;});});
   const lastDraw = sub.length - 1;
@@ -2301,11 +2350,16 @@ function methodBalanced(sub) {
   }).sort((a,b)=>b.score-a.score);
   const main6 = topN(scored, 6);
   const jolly = topN(scored.filter(x=>!main6.find(m=>m.num===x.num)), 1)[0];
+  main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
+  if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
+  const muLabel = (N * 6 / 90).toFixed(1);
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'balanced', label:'Bilanciato', icon:'⚖️', colorClass:'balanced',
-    desc:'Combina frequenza storica (45%) e ritardo attuale (55%) per un equilibrio ottimale.',
-    nums: main6, jolly,
-    statLabel: 'Score medio: '+(main6.reduce((s,x)=>s+x.score,0)/6).toFixed(3)
+    desc:'Combina frequenza storica (45%) e ritardo attuale (55%). La σ mostra la deviazione dalla media attesa per puro caso.',
+    nums: main6, jolly, N,
+    statLabel: `Atteso: <strong>${muLabel}×</strong> · Media osservata: <strong>${obsAvg}×</strong>`,
+    showSigma: true
   };
 }
 
@@ -2401,14 +2455,24 @@ function renderForecast() {
       <div class="forecast-balls">`;
 
     m.nums.forEach((x, i) => {
-      html += `<div class="fball ${m.colorClass}-ball" title="Frequenza: ${x.rawFreq||x.score}">
-        <span class="ball-rank">${i+1}</span>${x.num}</div>`;
+      const sigHtml = (m.showSigma && x.sigmaData)
+        ? sigmaBadge(x.sigmaData.z, x.sigmaData.mu, x.rawFreq)
+        : '';
+      html += `<div class="fball-wrap">
+        <div class="fball ${m.colorClass}-ball" title="Freq: ${x.rawFreq||x.score}×">
+          <span class="ball-rank">${i+1}</span>${x.num}
+        </div>${sigHtml}</div>`;
     });
 
     // Jolly ball
     if (m.jolly) {
-      html += `<div class="fball" style="background:rgba(231,76,60,.18);color:var(--red);border:1.5px solid var(--red);opacity:.85" title="Jolly suggerito">
-        <span class="ball-rank" style="color:var(--red)">J</span>${m.jolly.num}</div>`;
+      const sigHtml = (m.showSigma && m.jolly.sigmaData)
+        ? sigmaBadge(m.jolly.sigmaData.z, m.jolly.sigmaData.mu, m.jolly.rawFreq)
+        : '';
+      html += `<div class="fball-wrap">
+        <div class="fball" style="background:rgba(231,76,60,.18);color:var(--red);border:1.5px solid var(--red);opacity:.85" title="Jolly suggerito">
+          <span class="ball-rank" style="color:var(--red)">J</span>${m.jolly.num}
+        </div>${sigHtml}</div>`;
     }
     html += `</div>`;
 
@@ -2419,6 +2483,11 @@ function renderForecast() {
       html += `<span class="mstat">Max ritardo: <strong>${maxGap}</strong> estr.</span>`;
     }
     html += `</div>`;
+    // Sigma legend for methods that show sigma
+    if (m.showSigma && m.N) {
+      const mu = (m.N * 6 / 90).toFixed(1);
+      html += `<div class="sigma-legend">σ: deviazione dal caso atteso per ${m.N} estrazioni (media ${mu}× per numero)</div>`;
+    }
 
     // Pairs table for pairs method
     if (m.topPairs && m.topPairs.length) {
