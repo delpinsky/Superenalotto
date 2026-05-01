@@ -2245,8 +2245,8 @@ function showForecastSection() {
 function topN(scored, n) {
   const seen = new Set();
   const result = [];
-  for (const {num, score} of scored) {
-    if (!seen.has(num)) { seen.add(num); result.push({num, score}); }
+  for (const item of scored) {
+    if (!seen.has(item.num)) { seen.add(item.num); result.push(item); }
     if (result.length >= n) break;
   }
   return result;
@@ -2290,8 +2290,7 @@ function methodHot(sub) {
   main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
   if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
   const muLabel = (N * 6 / 90).toFixed(1);
-  const _muNum  = N * 6 / 90;
-  const obsAvg  = _muNum > 0 ? (main6.reduce((s,x)=>s+x.rawFreq,0)/6/_muNum).toFixed(2) : '—';
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'hot', label:'Hot Numbers', icon:'🔥', colorClass:'hot',
     desc:'I 6 numeri estratti più spesso nel periodo. La σ indica quanto ogni numero supera la media attesa per puro caso.',
@@ -2322,8 +2321,7 @@ function methodCold(sub) {
   main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
   if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
   const muLabel = (N * 6 / 90).toFixed(1);
-  const _muNum  = N * 6 / 90;
-  const obsAvg  = _muNum > 0 ? (main6.reduce((s,x)=>s+x.rawFreq,0)/6/_muNum).toFixed(2) : '—';
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'cold', label:'Cold Numbers', icon:'❄️', colorClass:'cold',
     desc:'I numeri con il ritardo maggiore. La σ (negativa) mostra quanto sono sotto la media attesa per puro caso.',
@@ -2355,8 +2353,7 @@ function methodBalanced(sub) {
   main6.forEach(x => { x.sigmaData = calcSigma(x.rawFreq, N); });
   if (jolly) jolly.sigmaData = calcSigma(jolly.rawFreq, N);
   const muLabel = (N * 6 / 90).toFixed(1);
-  const _muNum  = N * 6 / 90;
-  const obsAvg  = _muNum > 0 ? (main6.reduce((s,x)=>s+x.rawFreq,0)/6/_muNum).toFixed(2) : '—';
+  const obsAvg  = (main6.reduce((s,x)=>s+x.rawFreq,0)/6).toFixed(1);
   return {
     key:'balanced', label:'Bilanciato', icon:'⚖️', colorClass:'balanced',
     desc:'Combina frequenza storica (45%) e ritardo attuale (55%). La σ mostra la deviazione dalla media attesa per puro caso.',
