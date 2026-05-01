@@ -1,7 +1,7 @@
 # 🎰 SuperEnalotto — Analisi Statistica PWA
 
 [![GitHub Pages](https://img.shields.io/badge/Live-delpinsky.github.io%2FSuperenalotto-brightgreen)](https://delpinsky.github.io/Superenalotto/)
-[![Version](https://img.shields.io/badge/versione-v1.0.17-blue)]()
+[![Version](https://img.shields.io/badge/versione-v1.0.25-blue)]()
 [![License](https://img.shields.io/badge/licenza-uso%20personale-lightgrey)]()
 
 App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEnalotto. Scarica l'intero storico dal 1997 ad oggi direttamente da superenalotto.com, costruisce un database locale nel browser e offre strumenti statistici, previsioni AI e sistemi di gioco.
@@ -79,6 +79,17 @@ voglio numeri freddi degli ultimi due anni
 ---
 
 ## 📋 Changelog
+
+### v1.0.25 — 2026-05-01
+- **Fix bug `Media osservata: NaN×`** — causa radice: la funzione `topN()` usava destructuring `{num, score}` perdendo silenziosamente `rawFreq`, `lastDate` e tutte le altre proprietà degli oggetti. Ora itera con `for (const item of scored)` preservando l'intero oggetto
+- **Fix typo `<btton>`** — tag non valido `<btton id="theme-toggle">` corretto in `<button>`
+- **Status bar compatta** — la barra di stato superiore passa da layout a colonna (due righe) a riga singola con testo a sinistra e toggle MODALITÀ a destra, entrambi centrati verticalmente
+
+### v1.0.24 — 2026-05-01
+- **Aggiornamento numero versione** a v1.0.24 (preparazione release)
+
+### v1.0.18 — 2026-03-22
+- Miglioramenti interni e pulizia codice
 
 ### v1.0.17 — 2026-03-22
 - **Sezione vincite parte chiusa** — la tabella "📊 Vincite concorso" è collassata di default, si apre cliccando
