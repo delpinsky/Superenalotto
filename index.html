@@ -4116,10 +4116,9 @@ function saveLastDraw(dr) {
 
 // URL per singola estrazione: superenalotto.com/risultati-estrazione/DD-MM-YYYY
 function buildWinningsUrl(dateStr) {
-  // dateStr = YYYY-MM-DD → risultati-estrazione/DD-MM-YYYY
+  // dateStr = YYYY-MM-DD → risultati-estrazione/DD-MM-YYYY (con zero-padding)
   const [y, m, d] = dateStr.split('-');
-  const dd = parseInt(d); // giorno senza zero iniziale (es. 7, non 07)
-  const url = `https://www.superenalotto.com/risultati-estrazione/${dd}-${m}-${y}`;
+  const url = `https://www.superenalotto.com/risultati-estrazione/${d}-${m}-${y}`;
   console.log('Winnings URL:', url);
   return url;
 }

@@ -33,7 +33,7 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
-BASE_URL_COM = 'https://www.superenalotto.com/risultati/estrazione-{d:02d}-{m:02d}-{y}'
+BASE_URL_COM = 'https://www.superenalotto.com/risultati-estrazione/{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
@@ -67,18 +67,22 @@ class WinningsParser(HTMLParser):
         super().__init__()
         self.in_se_table = False
         self.pending_table = False
-        self.last_h2 = ''
+        self.last_heading = ''
+        # Tag considerati "heading" (il sito ha cambiato da h2 ad altri tag)
+        self._heading_tags = {'h1','h2','h3','h4','h5','h6'}
+        self.in_heading = False
         self.in_row = self.in_cell = False
         self.current_row = []
         self.current_text = ''
         self.rows = []
 
     def handle_starttag(self, tag, attrs):
-        if tag == 'h2':
+        if tag in self._heading_tags:
+            self.in_heading = True
             self.pending_table = True
-            self.last_h2 = ''
+            self.last_heading = ''
         elif tag == 'table' and self.pending_table:
-            title = self.last_h2
+            title = self.last_heading
             self.in_se_table = ('SuperEnalotto' in title and
                                 'SuperStar' not in title and
                                 'WinBox' not in title)
@@ -91,7 +95,9 @@ class WinningsParser(HTMLParser):
             self.current_text = ''
 
     def handle_endtag(self, tag):
-        if tag in ('td', 'th') and self.in_cell:
+        if tag in self._heading_tags:
+            self.in_heading = False
+        elif tag in ('td', 'th') and self.in_cell:
             self.current_row.append(self.current_text.strip())
             self.in_cell = False
         elif tag == 'tr' and self.in_row:
@@ -102,8 +108,8 @@ class WinningsParser(HTMLParser):
             self.in_se_table = False
 
     def handle_data(self, data):
-        if self.pending_table:
-            self.last_h2 += data
+        if self.in_heading:
+            self.last_heading += data
         if self.in_cell:
             self.current_text += data
 
