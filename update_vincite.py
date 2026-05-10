@@ -34,6 +34,7 @@ DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
 BASE_URL_COM = 'https://www.superenalotto.com/risultati-estrazione/{d:02d}-{m:02d}-{y}'
+BASE_URL_NET = 'https://www.superenalotto.net/estrazioni/{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
@@ -55,6 +56,11 @@ HEADERS = {
 def build_url_com(date_str):
     y, m, d = date_str.split('-')
     return BASE_URL_COM.format(d=int(d), m=int(m), y=y)
+
+def build_url_net(date_str):
+    y, m, d = date_str.split('-')
+    return BASE_URL_NET.format(d=int(d), m=int(m), y=y)
+
 
 def build_url_it(date_str, concorso_n):
     y, m, d = date_str.split('-')
@@ -108,6 +114,31 @@ class WinningsParser(HTMLParser):
         for rows in self.sections.values(): r.extend(rows)
         return r
 
+
+class WinningsParserNet(HTMLParser):
+    """Parser TABLE per superenalotto.net/estrazioni/DD-MM-YYYY.
+    Struttura colonne: [cat, premio_per_vincitore, vincitori, montepremi]
+    Logica: vincitori==0 → None (il valore mostrato è il jackpot accumulato).
+    """
+    def __init__(self):
+        super().__init__()
+        self.in_tbody=False; self.in_row=False; self.in_cell=False
+        self.rows=[]; self.current_cells=[]; self.current_text=''
+    def handle_starttag(self,tag,attrs):
+        t=tag.lower()
+        if t=='tbody': self.in_tbody=True
+        elif t=='tr' and self.in_tbody: self.in_row=True; self.current_cells=[]
+        elif t in ('td','th') and self.in_row: self.in_cell=True; self.current_text=''
+    def handle_endtag(self,tag):
+        t=tag.lower()
+        if t=='tbody': self.in_tbody=False
+        elif t=='tr' and self.in_row:
+            if len(self.current_cells)>=3: self.rows.append(self.current_cells[:])
+            self.in_row=False
+        elif t in ('td','th') and self.in_cell:
+            self.current_cells.append(self.current_text.strip()); self.in_cell=False
+    def handle_data(self,data):
+        if self.in_cell: self.current_text+=data
 
 def parse_quote(text):
     """'52.205,24 €' → 52205.24,  '880.400,00 L' → 454.71 (lire→euro),  '-' → None"""
@@ -176,6 +207,24 @@ def _extract_quotes(rows):
     return result if any(v is not None for v in result.values()) else None
 
 
+def parse_html_net(html):
+    """Parsa HTML da superenalotto.net — colonne: [cat, premio_vincitore, vincitori, montepremi].
+    Vincitori==0 → None (il valore mostrato e' il jackpot accumulato, non un premio reale).
+    """
+    p = WinningsParserNet()
+    p.feed(html)
+    if not p.rows: return None
+    keys = ['p6','p5j','p5','p4','p3','p2']
+    data_rows = [r for r in p.rows if not re.match(r'^(numeri|premio|cat)',r[0],re.I)]
+    result = {}
+    for i, key in enumerate(keys):
+        if i >= len(data_rows): result[key] = None; continue
+        r = data_rows[i]
+        prize   = parse_quote(r[1])     if len(r) > 1 else None
+        winners = parse_vincitori(r[2]) if len(r) > 2 else None
+        result[key] = None if winners == 0 else prize
+    return result if any(v is not None for v in result.values()) else None
+
 def parse_html(html):
     """Parsa HTML da superenalotto.com/risultati-estrazione/. Ritorna dict o None."""
     p = WinningsParser()
@@ -209,12 +258,16 @@ def fetch(url, aggressive=False):
 
 def fetch_with_fallback(date_str, concorso_n=None, aggressive=False):
     """
-    Prova superenalotto.com, poi superenalotto.it come fallback.
+    Prova .com → .net → .it come fallback.
     Ritorna (html, sorgente) o (None, None).
     """
     html = fetch(build_url_com(date_str), aggressive)
     if html:
         return html, 'com'
+    # Fallback .net (URL semplice, no concorso_n necessario)
+    html = fetch(build_url_net(date_str), aggressive)
+    if html:
+        return html, 'net'
     if concorso_n:
         html = fetch(build_url_it(date_str, concorso_n), aggressive)
         if html:
@@ -284,10 +337,10 @@ def scrape_year(year, draws_for_year, vincite, retry_empty=False, aggressive=Fal
             failed += 1
             consecutive_errors += 1
         else:
-            quote = parse_html(html)
+            quote = parse_html_net(html) if src == 'net' else parse_html(html)
             if quote:
                 vincite[date_str] = quote
-                label = f'[{src}]' if src == 'it' else ''
+                label = f'[{src}]' if src in ('it', 'net') else ''
                 print(f'→ OK {label}  p5={quote.get("p5")}  p3={quote.get("p3")}')
                 scraped += 1
                 consecutive_errors = 0
