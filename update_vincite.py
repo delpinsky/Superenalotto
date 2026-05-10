@@ -338,6 +338,19 @@ def scrape_year(year, draws_for_year, vincite, retry_empty=False, aggressive=Fal
             consecutive_errors += 1
         else:
             quote = parse_html_net(html) if src == 'net' else parse_html(html)
+            # Se .com ha risposto ma la sezione quote è vuota, proviamo .net e .it
+            if not quote and src == 'com':
+                html_net = fetch(build_url_net(date_str), aggressive)
+                if html_net:
+                    quote = parse_html_net(html_net)
+                    if quote:
+                        src = 'net'
+                if not quote and concorso_n:
+                    html_it = fetch(build_url_it(date_str, concorso_n), aggressive)
+                    if html_it:
+                        quote = parse_html(html_it)
+                        if quote:
+                            src = 'it'
             if quote:
                 vincite[date_str] = quote
                 label = f'[{src}]' if src in ('it', 'net') else ''
