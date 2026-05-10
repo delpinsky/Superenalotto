@@ -2259,39 +2259,47 @@ function renderSearchDraw(dr, index) {
       if (arrow) arrow.style.transform = 'rotate(0deg)';
       return;
     }
-    // Dati non nel db statico → fetch live
+    // Nessun dato nel db statico → fetch live da superenalotto.com
     if (!vData) {
-      vBody.innerHTML = '<div style="padding:10px 0;font-size:12px;color:var(--muted)">⏳ Caricamento vincite in corso…</div>';
+      vBody.innerHTML = '<div style="padding:10px 0;font-size:12px;color:var(--muted)">⏳ Caricamento vincite…</div>';
       vBody.style.maxHeight = '60px';
       if (arrow) arrow.style.transform = 'rotate(180deg)';
       const live = await fetchWinningsLive(dr.date);
       if (live) {
         const CATS = [
-          {k:'p6', l:'6 punti'},{k:'p5j', l:'5 punti + Jolly'},
-          {k:'p5', l:'5 punti'},{k:'p4', l:'4 punti'},
-          {k:'p3', l:'3 punti'},{k:'p2', l:'2 punti'}
+          {k:'p6',  l:'6 punti'},
+          {k:'p5j', l:'5 punti + Jolly'},
+          {k:'p5',  l:'5 punti'},
+          {k:'p4',  l:'4 punti'},
+          {k:'p3',  l:'3 punti'},
+          {k:'p2',  l:'2 punti'}
         ];
-        let t = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px">';
-        t += '<thead><tr>'
-           + '<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
-           + '<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio unitario</th>'
-           + '</tr></thead><tbody>';
-        CATS.forEach(({k,l}, i) => {
-          const v = live[k];
-          const bg = i%2===0 ? 'background:var(--surface2)' : '';
-          const isJP = i===0, noW = v==null;
+        let t = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px">'
+              + '<colgroup><col><col style="width:150px"></colgroup>'
+              + '<thead><tr>'
+              + '<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
+              + '<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio unitario</th>'
+              + '</tr></thead><tbody>';
+        CATS.forEach(({k, l}, i) => {
+          const v   = live[k];
+          const bg  = i % 2 === 0 ? 'background:var(--surface2)' : '';
+          const noW = v == null;
+          const isJP = i === 0;
           const cc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text)';
           const vc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text);font-weight:500';
-          t += `<tr style="${bg}"><td style="padding:5px 6px;${cc}">${l}</td>`
-             + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v, dr.date)}</td></tr>`;
+          t += `<tr style="${bg}">` +
+               `<td style="padding:5px 6px;${cc}">${l}</td>` +
+               `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v, dr.date)}</td>` +
+               `</tr>`;
         });
         t += '</tbody></table>';
         vBody.innerHTML = t;
-        const notAvail = vToggleBtn.querySelector('span[style*="italic"]');
-        if (notAvail) notAvail.remove();
+        // Rimuovi badge "dati non disponibili"
+        const badge = vToggleBtn.querySelector('span[style*="italic"]');
+        if (badge) badge.remove();
         vBody.style.maxHeight = '400px';
       } else {
-        vBody.innerHTML = '<div style="padding:8px 0;font-size:12px;color:var(--muted);font-style:italic">Dati vincite non disponibili per questa data.</div>';
+        vBody.innerHTML = '<div style="padding:8px 0;font-size:12px;color:var(--muted);font-style:italic">Vincite non disponibili per questa estrazione.</div>';
         vBody.style.maxHeight = '60px';
       }
       return;
@@ -4158,11 +4166,11 @@ function saveLastDraw(dr) {
 
 // URL per singola estrazione: superenalotto.com/risultati-estrazione/DD-MM-YYYY
 function buildWinningsUrl(dateStr) {
-  // dateStr = YYYY-MM-DD → /en/results/draw-DD-MM-YYYY (superenalotto.com EN, accessibile via proxy)
+  // dateStr = YYYY-MM-DD → /risultati-estrazione/DD-MM-YYYY (URL confermato funzionante)
   const [y, m, d] = dateStr.split('-');
   const dd = d.padStart(2, '0');
   const mm = m.padStart(2, '0');
-  const url = `https://www.superenalotto.com/en/results/draw-${dd}-${mm}-${y}`;
+  const url = `https://www.superenalotto.com/risultati-estrazione/${dd}-${mm}-${y}`;
   console.log('Winnings URL:', url);
   return url;
 }
@@ -4173,34 +4181,43 @@ function parseWinningsHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const sections = [];
 
-  // Cerca testo titolo sezione risalendo la DOM
+  // Cerca titolo sezione risalendo la DOM (h2/h3/h4/p/strong/b/div)
   function findTitle(tableEl) {
+    // 1. Sibling precedenti diretti
     let el = tableEl.previousElementSibling;
     for (let i = 0; i < 8 && el; i++) {
-      const t = el.textContent.trim().replace(/\s+/g,' ');
-      if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
+      const t = el.textContent.trim().replace(/\s+/g, ' ');
+      if (t.length < 80 && /quote|premi/i.test(t)) return t;
       el = el.previousElementSibling;
     }
+    // 2. Sibling del parent wrapper
     const par = tableEl.parentElement;
     if (par) {
       let pel = par.previousElementSibling;
       for (let i = 0; i < 6 && pel; i++) {
-        const t = pel.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
+        const t = pel.textContent.trim().replace(/\s+/g, ' ');
+        if (t.length < 80 && /quote|premi/i.test(t)) return t;
         pel = pel.previousElementSibling;
       }
+      // 3. Figli del parent prima della tabella
       for (const child of par.children) {
         if (child === tableEl) break;
-        const t = child.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
+        const t = child.textContent.trim().replace(/\s+/g, ' ');
+        if (t.length < 80 && /quote|premi/i.test(t)) return t;
       }
+      // 4. Nonno
       const grand = par.parentElement;
       if (grand) {
         let gel = grand.previousElementSibling;
         for (let i = 0; i < 4 && gel; i++) {
-          const t = gel.textContent.trim().replace(/\s+/g,' ');
-          if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
+          const t = gel.textContent.trim().replace(/\s+/g, ' ');
+          if (t.length < 80 && /quote|premi/i.test(t)) return t;
           gel = gel.previousElementSibling;
+        }
+        for (const child of grand.children) {
+          if (child === par) break;
+          const t = child.textContent.trim().replace(/\s+/g, ' ');
+          if (t.length < 80 && /quote|premi/i.test(t)) return t;
         }
       }
     }
@@ -4209,116 +4226,53 @@ function parseWinningsHtml(html) {
     return null;
   }
 
-  // Normalizza un valore monetario da qualsiasi formato a stringa leggibile
-  // Supporta: "162,059,299.71 €" (EN), "162.059.299,71 €" (IT), "0.00 €"
-  function normalizePrize(s) {
-    if (!s) return null;
-    s = s.trim().replace(/\u00a0/g,' ').replace(/\s+/g,' ');
-    if (!s || s === '-' || s === '–' || s === '—' || s === 'N/D') return null;
-    // Rimuovi simbolo valuta
-    const raw = s.replace(/[€£$]/g,'').trim();
-    if (!raw) return null;
-    // Formato EN: 162,059,299.71 → separatore migliaia=virgola, decimale=punto
-    // Formato IT: 162.059.299,71 → separatore migliaia=punto, decimale=virgola
-    let num;
-    if (/^[\d,]+\.\d{1,2}$/.test(raw)) {
-      // EN format: remove commas, keep dot
-      num = parseFloat(raw.replace(/,/g,''));
-    } else if (/^[\d.]+,\d{1,2}$/.test(raw)) {
-      // IT format: remove dots, replace comma with dot
-      num = parseFloat(raw.replace(/\./g,'').replace(',','.'));
-    } else {
-      // Fallback
-      num = parseFloat(raw.replace(/[^0-9.]/g,''));
-    }
-    if (isNaN(num)) return null;
-    // Formato output sempre IT
-    return num.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
-  }
-
-  function parseWinnersCount(s) {
-    if (!s) return 0;
-    return parseInt(s.replace(/[^0-9]/g,'')) || 0;
-  }
-
-  // Mappa categorie EN → IT
-  function mapCategory(cat) {
-    const c = cat.trim();
-    const map = {
-      '6':'6 punti', '5+1':'5 punti + Jolly', '5+jolly':'5 punti + Jolly',
-      '5':'5 punti', '4':'4 punti', '3':'3 punti', '2':'2 punti',
-      '6 punti':'6 punti', '5 punti + jolly':'5 punti + Jolly',
-      '5 punti':'5 punti', '4 punti':'4 punti', '3 punti':'3 punti', '2 punti':'2 punti',
-    };
-    return map[c.toLowerCase()] || c;
-  }
-
   doc.querySelectorAll('table').forEach(table => {
     const rows = [...table.querySelectorAll('tr')];
     if (!rows.length) return;
 
     const dataRows = [];
     rows.forEach(tr => {
-      const cells = [...tr.querySelectorAll('td,th')];
-      if (cells.length < 2) return;
-      const tds = cells.map(td => td.textContent.trim().replace(/\s+/g,' ').replace(/\u00a0/g,' '));
-      // Salta righe header
-      if (/^(match|category|premio|categoria|prize|winners|vincitori|punti)/i.test(tds[0])) return;
-      if (!tds[0] || !/[0-9a-zA-Z]/.test(tds[0])) return;
+      const tds = [...tr.querySelectorAll('td')].map(td =>
+        td.textContent.trim().replace(/\s+/g, ' ').replace(/\u00a0/g, ' ')
+      );
+      if (tds.length < 2) return;
+      if (/^(premio|categoria|valore|vincitori|match|prize|winners)/i.test(tds[0])) return;
+      if (!tds[0] || !/[a-zA-Z0-9]/.test(tds[0])) return;
 
-      // Rileva formato colonne:
-      // EN .com: [Match/cat, Prize/€, Winners/n]  oppure [Match, Winners, Prize]
-      // IT .com: [categoria, valore€, vincitori]
-      // IT .net: [categoria, vincitori, valore€]
-      let cat = mapCategory(tds[0]);
+      // Formato .com: [categoria, valore€|"-", vincitori]
+      // Formato .it:  [categoria, vincitori, valore€]
       let prize = null, winners = '0';
+      const isITFormat = tds.length >= 3 &&
+        /^[\d.]+$/.test(tds[1].replace(/[^0-9.]/g,'')) &&
+        !/[€$£]/.test(tds[1]) &&
+        (tds[2].includes('€') || tds[2].includes(','));
 
-      if (tds.length >= 3) {
-        const col1HasEuro = /[€£$]|\d[,.]\d{2}\s*€/.test(tds[1]);
-        const col2HasEuro = /[€£$]|\d[,.]\d{2}\s*€/.test(tds[2]);
-        const col1IsCount = /^[\d.,\s]+$/.test(tds[1]) && !col1HasEuro;
-        const col2IsCount = /^[\d.,\s]+$/.test(tds[2]) && !col2HasEuro;
-
-        if (col1HasEuro && !col2HasEuro) {
-          // [cat, prize€, winners]
-          prize   = normalizePrize(tds[1]);
-          winners = tds[2];
-        } else if (col2HasEuro && !col1HasEuro) {
-          // [cat, winners, prize€]
-          winners = tds[1];
-          prize   = normalizePrize(tds[2]);
-        } else if (col1IsCount && !col2IsCount) {
-          // [cat, winners, prize] senza simbolo €
-          winners = tds[1];
-          prize   = normalizePrize(tds[2]);
-        } else {
-          // Default: [cat, prize, winners]
-          prize   = normalizePrize(tds[1]);
-          winners = tds[2];
-        }
+      if (isITFormat) {
+        winners = tds[1];
+        prize   = (tds[2] === '-' || tds[2] === '–' || !tds[2]) ? null : tds[2];
       } else {
-        prize = normalizePrize(tds[1]);
+        prize   = (tds[1] === '-' || tds[1] === '–' || !tds[1]) ? null : tds[1];
+        winners = tds[2] || '0';
       }
 
-      // Se winners=0 e prize=0.00 → non vinto (jackpot accumulato)
-      const wNum = parseWinnersCount(winners);
+      // Se 0 vincitori → premio non assegnato (jackpot accumulato)
+      const wNum = parseInt(String(winners).replace(/[^0-9]/g, '')) || 0;
       if (wNum === 0) prize = null;
 
-      dataRows.push({ cat, prize, winners: String(wNum) });
+      dataRows.push({ cat: tds[0], prize, winners: String(wNum) });
     });
 
     if (!dataRows.length) return;
 
-    // Scarta tabelle aggregate (riepilogo jackpot con < 4 categorie reali)
-    const realCats = dataRows.filter(r => /punti|^[2-6]$|5\+/i.test(r.cat));
-    if (realCats.length < 3 && dataRows.length < 4) return;
+    // Scarta tabelle riepilogative con meno di 4 righe di categorie
+    if (dataRows.length < 4) return;
 
     let title = findTitle(table);
     if (!title) {
       const cats = dataRows.map(r => r.cat).join(' ');
-      if (/superstar|\bSS\b/i.test(cats)) title = 'Quote SuperStar';
-      else if (/winbox/i.test(cats))        title = 'Quote WinBox';
-      else                                   title = 'Premi SuperEnalotto';
+      if (/superstar/i.test(cats))  title = 'Quote SuperStar';
+      else if (/winbox/i.test(cats)) title = 'Quote WinBox';
+      else                            title = 'Quote SuperEnalotto';
     }
 
     if (!sections.find(s => s.title === title)) {
@@ -4393,7 +4347,7 @@ function renderWinningsTable(sections, drawDate) {
   loading.style.display = 'none';
 }
 
-// Helper silenzioso: scraping vincite senza toccare la UI — ritorna dict {p6..p2} o null
+// Helper silenzioso: fetch vincite senza UI — ritorna dict {p6..p2} o null
 async function fetchWinningsLive(dateStr) {
   const winUrl = buildWinningsUrl(dateStr);
   for (let pi = 0; pi < PROXIES.length; pi++) {
@@ -4404,31 +4358,42 @@ async function fetchWinningsLive(dateStr) {
         xhr.open('GET', proxyUrl);
         xhr.timeout = 12000;
         xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
+        xhr.setRequestHeader('Pragma', 'no-cache');
         xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
         xhr.onerror   = () => reject(new Error('XHR error'));
         xhr.ontimeout = () => reject(new Error('timeout'));
         xhr.send();
       });
       if (html.length < 500) continue;
+      if (!html.includes('punti') && !html.includes('Quote')) continue;
       const secs = parseWinningsHtml(html);
       if (!secs.length) continue;
-      // Prende la sezione SuperEnalotto principale
-      const seSec = secs.find(s => /superenalotto|premi/i.test(s.title) && !/superstar|winbox/i.test(s.title)) || secs[0];
-      if (!seSec || !seSec.rows.length) continue;
-      // Mappa righe → keys standard {p6,p5j,p5,p4,p3,p2}
+      // Prende la sezione SuperEnalotto (non SuperStar, non WinBox)
+      const seSec = secs.find(s =>
+        /superenalotto|quote\s+super/i.test(s.title) &&
+        !/superstar|winbox/i.test(s.title)
+      ) || secs[0];
+      if (!seSec || seSec.rows.length < 4) continue;
+      // Converte righe → dict standard {p6,p5j,p5,p4,p3,p2}
       const keys = ['p6','p5j','p5','p4','p3','p2'];
       const result = {};
-      seSec.rows.forEach((r, i) => {
+      seSec.rows.slice(0, 6).forEach((r, i) => {
         if (i >= keys.length) return;
         const w = parseInt(String(r.winners).replace(/[^0-9]/g,'')) || 0;
         if (w === 0 || r.prize === null) { result[keys[i]] = null; return; }
-        // prize è già in formato "52.205,24 €" → estrai numero
-        const ps = String(r.prize).replace(/[€£$\s]/g,'').replace(/\./g,'').replace(',','.');
+        // prize es. "27.637,08 €" → rimuovi punto migliaia, virgola→punto
+        const ps = String(r.prize)
+          .replace(/[€£$\s]/g,'')
+          .replace(/\.(?=\d{3})/g,'')   // rimuovi punti separatore migliaia
+          .replace(',', '.');              // virgola decimale → punto
         const pv = parseFloat(ps);
         result[keys[i]] = isNaN(pv) || pv === 0 ? null : pv;
       });
       keys.forEach(k => { if (!(k in result)) result[k] = null; });
-      if (Object.values(result).some(v => v !== null)) return result;
+      if (Object.values(result).some(v => v !== null)) {
+        console.log('fetchWinningsLive OK per', dateStr, result);
+        return result;
+      }
     } catch(e) { console.warn('fetchWinningsLive proxy', pi, e.message); }
   }
   return null;
@@ -4467,6 +4432,8 @@ async function fetchWinnings(dateStr, concorsoN) {
         const xhr = new XMLHttpRequest();
         xhr.open('GET', proxyUrl);
         xhr.timeout = 10000;
+        xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
+        xhr.setRequestHeader('Pragma', 'no-cache');
         xhr.onload = () => {
           console.log(`proxy ${pi} status:`, xhr.status, 'len:', xhr.responseText.length);
           xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
@@ -4476,10 +4443,11 @@ async function fetchWinnings(dateStr, concorsoN) {
         xhr.send();
       });
 
-      console.log(`proxy ${pi} html contains 'Quote':`, html.includes('Quote'), "'punti':", html.includes('punti'));
+      console.log(`proxy ${pi} html len:`, html.length, 'has Quote:', html.includes('Quote'), 'has punti:', html.includes('punti'));
 
-      // Sanity check meno restrittivo
+      // Sanity check: la pagina .com deve contenere almeno la parola "punti"
       if (html.length < 500) throw new Error('Risposta troppo corta: ' + html.length);
+      if (!html.includes('punti') && !html.includes('Quote') && !html.includes('WinBox')) throw new Error('Pagina senza dati vincite');
 
       const sections = parseWinningsHtml(html);
       console.log(`proxy ${pi} sections found:`, sections.length, sections.map(s => s.title));
@@ -4501,7 +4469,7 @@ async function fetchWinnings(dateStr, concorsoN) {
     wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">' +
       'dati vincite non disponibili · ' +
       '<a href="' + fallbackUrl + '" target="_blank" rel="noopener" ' +
-      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.com (EN) ↗</a>' +
+      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.com ↗</a>' +
       '</div>';
     wrap.style.display = 'block';
   }
@@ -4688,7 +4656,7 @@ document.getElementById('json-import-input').addEventListener('change', e => {
       showLastDrawFromDB();
       document.getElementById('sistema-section').style.display = 'block';
       document.getElementById('results').style.display = 'block';
-      // Aggiorna automaticamente all'ultima estrazione
+      // Aggiorna automaticamente all'ultima estrazione reale
       setTimeout(() => fetchLastDraw(), 1000);
     } catch(err) {
       setSt('err', 'Errore nel file JSON: ' + err.message);
@@ -5577,11 +5545,11 @@ async function fetchLastDraw() {
         if (!html.includes('estrazioni')) throw new Error('Pagina vuota o proxy cache');
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
-        // Anti-stale: accetta solo se la data più recente è >= quella nel db
-        const latestInDb = draws.length ? draws[draws.length-1].date : '';
-        const latestParsed = parsed.reduce((max, d) => d.date > max ? d.date : max, '');
-        if (latestInDb && latestParsed < latestInDb) {
-          throw new Error('Risposta stale: ' + latestParsed + ' < ' + latestInDb);
+        // Anti-stale: la data più recente nella risposta deve essere >= quella nel db
+        const latestInDb     = draws.length ? draws[draws.length - 1].date : '';
+        const latestInParsed = parsed.reduce((mx, d) => d.date > mx ? d.date : mx, '');
+        if (latestInDb && latestInParsed < latestInDb) {
+          throw new Error('Risposta stale: ' + latestInParsed + ' < ' + latestInDb);
         }
         yearDraws = parsed;
         break; // proxy worked
@@ -6356,7 +6324,7 @@ async function ghDownload(silent) {
     if (typeof showForecastSection === 'function') showForecastSection();
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
     fetchJackpotOnly();
-    // Aggiorna automaticamente all'ultima estrazione senza click manuale
+    // Aggiorna automaticamente all'ultima estrazione reale
     setTimeout(() => fetchLastDraw(), 1000);
     return true;
   } catch(e) {

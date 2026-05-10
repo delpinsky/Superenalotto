@@ -33,7 +33,7 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
-BASE_URL_COM = 'https://www.superenalotto.com/en/results/draw-{d:02d}-{m:02d}-{y}'
+BASE_URL_COM = 'https://www.superenalotto.com/risultati-estrazione/{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
@@ -62,15 +62,9 @@ def build_url_it(date_str, concorso_n):
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
 class WinningsParser(HTMLParser):
-    """Estrae righe tabella vincite — supporta superenalotto.com/en, .com/it, .net, .it."""
+    """Estrae righe tabella Quote SuperEnalotto — compatibile con .com nuovo e vecchio layout."""
 
-    CAT_MAP = {
-        '6':'6 punti','5+1':'5 punti + Jolly','5+jolly':'5 punti + Jolly',
-        '5':'5 punti','4':'4 punti','3':'3 punti','2':'2 punti',
-    }
     HEADING_TAGS = {'h1','h2','h3','h4','h5','h6','strong','b'}
-    SE_RE   = re.compile(r'prize|winnings|premi|quote|superenalotto', re.I)
-    SKIP_RE = re.compile(r'SuperStar|WinBox|superstar|winbox')
 
     def __init__(self):
         super().__init__()
@@ -81,7 +75,7 @@ class WinningsParser(HTMLParser):
         self.in_row = self.in_cell = False
         self.current_row  = []
         self.current_text = ''
-        self.rows     = []   # righe tabella SE principale
+        self.rows     = []   # righe tabella SuperEnalotto
         self.all_rows = []   # fallback: tutte le righe
 
     def handle_starttag(self, tag, attrs):
@@ -91,13 +85,13 @@ class WinningsParser(HTMLParser):
         elif tag == 'table':
             self.table_depth += 1
             title = self.last_heading.strip()
-            self.in_se_table = (not title or bool(self.SE_RE.search(title))) \
-                               and not self.SKIP_RE.search(title)
-            self.pending_h = False
+            is_se = ('SuperEnalotto' in title or 'Quote' in title or not title) and                     'SuperStar' not in title and 'WinBox' not in title
+            self.in_se_table = is_se
+            self.pending_h   = False
         elif tag == 'tr' and self.table_depth >= 1:
             self.in_row      = True
             self.current_row = []
-        elif tag in ('td','th') and self.in_row:
+        elif tag in ('td', 'th') and self.in_row:
             self.in_cell      = True
             self.current_text = ''
 
@@ -107,7 +101,7 @@ class WinningsParser(HTMLParser):
         elif tag == 'table':
             self.table_depth  = max(0, self.table_depth - 1)
             self.in_se_table  = False
-        elif tag in ('td','th') and self.in_cell:
+        elif tag in ('td', 'th') and self.in_cell:
             self.current_row.append(self.current_text.strip())
             self.in_cell = False
         elif tag == 'tr' and self.in_row:
@@ -123,18 +117,14 @@ class WinningsParser(HTMLParser):
         if self.in_cell:
             self.current_text += data
 
-    def map_cat(self, c):
-        return self.CAT_MAP.get(c.strip().lower(), c.strip())
-
 
 def parse_html(html):
-    """Parsa HTML da qualsiasi sorgente (.com/en, .com/it, .net, .it). Ritorna dict o None."""
+    """Parsa HTML da qualsiasi sorgente (.com, .net, .it). Ritorna dict o None."""
     p = WinningsParser()
     p.feed(html)
     result = _extract_quotes(p.rows)
     if result:
         return result
-    # Fallback title-agnostico
     return _extract_quotes(p.all_rows)
 
 # ── Fetch via proxy ───────────────────────────────────────────────────────────
@@ -155,7 +145,7 @@ def fetch(url, aggressive=False):
                 req = urllib.request.Request(purl, headers=HEADERS)
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     html = resp.read().decode('utf-8', errors='ignore')
-                    if len(html) > 1000 and any(kw in html for kw in ('Prize','Winners','Quote','punti','Punti','Premi','Vincitori')):
+                    if len(html) > 1000 and any(kw in html for kw in ('Quote','punti','Punti','WinBox','SuperStar')):
                         return html
             except Exception:
                 pass
