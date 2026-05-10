@@ -4116,10 +4116,11 @@ function saveLastDraw(dr) {
 
 // URL per singola estrazione: superenalotto.com/risultati-estrazione/DD-MM-YYYY
 function buildWinningsUrl(dateStr) {
-  // dateStr = YYYY-MM-DD → risultati-estrazione/DD-MM-YYYY (zero-padding obbligatorio)
+  // dateStr = YYYY-MM-DD → /estrazioni/DD-MM-YYYY (superenalotto.net, zero-padding obbligatorio)
   const [y, m, d] = dateStr.split('-');
-  const dd = d.padStart(2, '0'); // es. "9" → "09"
-  const url = `https://www.superenalotto.com/risultati-estrazione/${dd}-${m}-${y}`;
+  const dd = d.padStart(2, '0');
+  const mm = m.padStart(2, '0');
+  const url = `https://www.superenalotto.net/estrazioni/${dd}-${mm}-${y}`;
   console.log('Winnings URL:', url);
   return url;
 }
@@ -4130,54 +4131,99 @@ function parseWinningsHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const sections = [];
 
-  // Risale la DOM cercando un elemento con testo che inizia per "Quote "
-  // Controlla sibling precedenti e parent's siblings (per strutture nested)
+  // Cerca testo "Quote" o "Premi" risalendo la DOM a 4 livelli
   function findTitle(tableEl) {
-    // 1. Sibling precedenti diretti
+    // 1. Sibling precedenti diretti (fino a 8)
     let el = tableEl.previousElementSibling;
-    for (let i = 0; i < 6 && el; i++) {
+    for (let i = 0; i < 8 && el; i++) {
       const t = el.textContent.trim().replace(/\s+/g,' ');
-      if (t.length < 60 && /^quote\s/i.test(t)) return t;
+      if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
       el = el.previousElementSibling;
     }
-    // 2. Sibling del parent (tabella dentro un wrapper div)
+    // 2. Sibling del parent wrapper
     const par = tableEl.parentElement;
     if (par) {
       let pel = par.previousElementSibling;
-      for (let i = 0; i < 4 && pel; i++) {
+      for (let i = 0; i < 6 && pel; i++) {
         const t = pel.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 60 && /^quote\s/i.test(t)) return t;
+        if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
         pel = pel.previousElementSibling;
       }
-      // 3. Primo figlio del parent (titolo dentro lo stesso wrapper)
-      const first = par.firstElementChild;
-      if (first && first !== tableEl) {
-        const t = first.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 60 && /^quote\s/i.test(t)) return t;
+      // 3. Qualsiasi figlio del parent prima della tabella
+      for (const child of par.children) {
+        if (child === tableEl) break;
+        const t = child.textContent.trim().replace(/\s+/g,' ');
+        if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+      }
+      // 4. Risali al nonno
+      const grand = par.parentElement;
+      if (grand) {
+        let gel = grand.previousElementSibling;
+        for (let i = 0; i < 4 && gel; i++) {
+          const t = gel.textContent.trim().replace(/\s+/g,' ');
+          if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+          gel = gel.previousElementSibling;
+        }
+        for (const child of grand.children) {
+          if (child === par) break;
+          const t = child.textContent.trim().replace(/\s+/g,' ');
+          if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+        }
       }
     }
+    // 5. Caption della tabella
+    const caption = tableEl.querySelector('caption');
+    if (caption) return caption.textContent.trim();
     return null;
   }
 
-  // Cerca TUTTE le tabelle con colonne Premio/Valore/Vincitori
+  // Rileva se una stringa sembra un contatore vincitori (numero intero puro)
+  function looksLikeCount(s) {
+    return /^\d[\d.\s]*$/.test(s.trim().replace(/ /g,''));
+  }
+
   doc.querySelectorAll('table').forEach(table => {
     const rows = [...table.querySelectorAll('tr')];
     if (!rows.length) return;
 
     const dataRows = [];
     rows.forEach(tr => {
-      const tds = [...tr.querySelectorAll('td')].map(td => td.textContent.trim().replace(/\s+/g, ' '));
-      if (tds.length >= 2 && tds[0] && !/^premio$/i.test(tds[0])) {
-        dataRows.push({
-          cat:     tds[0],
-          prize:   (!tds[1] || tds[1] === '-' || tds[1] === '−') ? null : tds[1],
-          winners: tds[2] || '0'
-        });
+      const tds = [...tr.querySelectorAll('td')].map(td =>
+        td.textContent.trim().replace(/\s+/g,' ').replace(/ /g,' ')
+      );
+      if (tds.length < 2) return;
+      const hasNum = tds.some(t => /\d/.test(t));
+      if (!hasNum) return;
+      if (/^(premio|categoria|punti|match|prize|winners)/i.test(tds[0])) return;
+      if (!tds[0]) return;
+
+      // Rileva automaticamente il formato colonne
+      // formato A: [cat, prize, winners]  ← superenalotto.com
+      // formato B: [cat, winners, prize]  ← superenalotto.it / .net
+      let prize   = null;
+      let winners = '0';
+      if (tds.length >= 3 && looksLikeCount(tds[1]) && !/[€,]/. test(tds[1])) {
+        // formato B: col[1] = vincitori, col[2] = premio
+        winners = tds[1];
+        prize   = (!tds[2] || tds[2] === '-' || tds[2] === '–') ? null : tds[2];
+      } else {
+        // formato A: col[1] = premio, col[2] = vincitori
+        prize   = (!tds[1] || tds[1] === '-' || tds[1] === '–') ? null : tds[1];
+        winners = tds[2] || '0';
       }
+      dataRows.push({ cat: tds[0], prize, winners });
     });
     if (!dataRows.length) return;
 
-    const title = findTitle(table) || 'Quote SuperEnalotto';
+    // Titolo: cerca nella DOM, poi fallback intelligente sul contenuto
+    let title = findTitle(table);
+    if (!title) {
+      const cats = dataRows.map(r => r.cat).join(' ');
+      if (/superstar|SS/i.test(cats)) title = 'Quote SuperStar';
+      else if (/winbox/i.test(cats))    title = 'Quote WinBox';
+      else                               title = 'Quote SuperEnalotto';
+    }
+
     if (!sections.find(s => s.title === title)) {
       sections.push({ title, rows: dataRows });
     }
@@ -4185,6 +4231,7 @@ function parseWinningsHtml(html) {
 
   return sections;
 }
+
 
 // Renderizza le sezioni vincite nel DOM
 function renderWinningsTable(sections, drawDate) {
@@ -4316,7 +4363,7 @@ async function fetchWinnings(dateStr, concorsoN) {
     wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">' +
       'dati vincite non disponibili · ' +
       '<a href="' + fallbackUrl + '" target="_blank" rel="noopener" ' +
-      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.com ↗</a>' +
+      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.net ↗</a>' +
       '</div>';
     wrap.style.display = 'block';
   }
@@ -5373,12 +5420,26 @@ async function fetchLastDraw() {
     for (const proxyFn of PROXIES) {
       try {
         const url  = proxyFn(SRC_FRESH(thisYear));
-        const resp = await fetch(url, { signal: AbortSignal.timeout(20000) });
-        if (!resp.ok) throw new Error('HTTP ' + resp.status);
-        const html = await resp.text();
+        // XHR con no-cache per evitare risposte stale da proxy/browser
+        const html = await new Promise((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('GET', url);
+          xhr.timeout = 20000;
+          xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
+          xhr.setRequestHeader('Pragma', 'no-cache');
+          xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
+          xhr.onerror   = () => reject(new Error('XHR error'));
+          xhr.ontimeout = () => reject(new Error('timeout'));
+          xhr.send();
+        });
         if (!html.includes('estrazioni')) throw new Error('Pagina vuota o proxy cache');
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
+        // Anti-stale: rifiuta se la risposta ha meno estrazioni di quelle già in db
+        const existingThisYear = draws.filter(d => d.date.startsWith(String(thisYear))).length;
+        if (existingThisYear > 0 && parsed.length < existingThisYear) {
+          throw new Error(`Risposta stale: ${parsed.length} < ${existingThisYear} nel db`);
+        }
         yearDraws = parsed;
         break; // proxy worked
       } catch(e) {

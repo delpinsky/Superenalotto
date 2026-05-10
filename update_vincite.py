@@ -4,7 +4,7 @@ update_vincite.py — Scraping quote SuperEnalotto
 Costruisce/aggiorna vincite.json con le quote per ogni concorso.
 
 Sorgenti (in ordine di priorità):
-  1. superenalotto.com/risultati-estrazione/DD-MM-YYYY  (nuovo layout dal 2026)
+  1. superenalotto.com/risultati/estrazione-D-MM-YYYY
   2. superenalotto.it/archivio-estrazioni/concorso-N/D-mese-YYYY  (fallback)
 
 Struttura vincite.json:
@@ -33,7 +33,7 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
-BASE_URL_COM = 'https://www.superenalotto.com/risultati-estrazione/{d:02d}-{m:02d}-{y}'
+BASE_URL_COM = 'https://www.superenalotto.net/estrazioni/{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
@@ -61,39 +61,41 @@ def build_url_it(date_str, concorso_n):
     return BASE_URL_IT.format(n=concorso_n, d=int(d), mese=MESI_IT[int(m)], y=y)
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
-class WinningsParser(HTMLParser):
-    """Estrae le righe della tabella Quote SuperEnalotto (non SuperStar/WinBox).
-    Compatibile con il vecchio layout (h2) e il nuovo (h3, h4, p).
-    """
-    # Tag che possono contenere il titolo di sezione "Quote SuperEnalotto"
-    HEADING_TAGS = {'h2', 'h3', 'h4', 'p', 'strong', 'b'}
+HEADING_TAGS = {'h1','h2','h3','h4','h5','h6','p','strong','b'}
+SE_TITLE_RE  = re.compile(r'SuperEnalotto|Quote|Premi|Combinazione', re.I)
+SKIP_RE      = re.compile(r'SuperStar|WinBox', re.I)
 
+class WinningsParser(HTMLParser):
+    """Estrae righe tabella quote — compatibile con superenalotto.net e .com."""
     def __init__(self):
         super().__init__()
-        self.in_heading    = False
-        self.current_heading = ''
-        self.pending_table = False
-        self.last_title    = ''
-        self.in_se_table   = False
+        self.in_se_table  = False
+        self.in_any_table = False
+        self.pending_heading = False
+        self.last_heading = ''
+        self.heading_depth = 0
         self.in_row = self.in_cell = False
-        self.current_row   = []
-        self.current_text  = ''
-        self.rows          = []
+        self.current_row = []
+        self.current_text = ''
+        self.rows     = []   # righe tabella SuperEnalotto
+        self.all_rows = []   # fallback: tutte le righe
+        self.table_depth = 0
 
     def handle_starttag(self, tag, attrs):
-        if tag in self.HEADING_TAGS:
-            self.in_heading = True
-            self.current_heading = ''
-        elif tag == 'table' and self.pending_table:
-            title = self.last_title
-            self.in_se_table = ('SuperEnalotto' in title and
-                                'SuperStar' not in title and
-                                'WinBox' not in title)
-            self.pending_table = False
+        if tag in HEADING_TAGS:
+            self.pending_heading = True
+            self.last_heading = ''
+            self.heading_depth += 1
         elif tag == 'table':
-            # Tabella senza pending → non è quella che cerchiamo
-            self.in_se_table = False
-        elif tag == 'tr' and self.in_se_table:
+            self.table_depth += 1
+            title = self.last_heading.strip()
+            if title:
+                self.in_se_table = bool(SE_TITLE_RE.search(title)) and not SKIP_RE.search(title)
+            else:
+                self.in_se_table = True   # nessun titolo → accetta (fallback)
+            self.in_any_table = True
+            self.pending_heading = False
+        elif tag == 'tr' and self.table_depth >= 1:
             self.in_row = True
             self.current_row = []
         elif tag in ('td', 'th') and self.in_row:
@@ -101,26 +103,27 @@ class WinningsParser(HTMLParser):
             self.current_text = ''
 
     def handle_endtag(self, tag):
-        if tag in self.HEADING_TAGS and self.in_heading:
-            text = self.current_heading.strip()
-            # Imposta pending solo se il testo inizia con "Quote "
-            if text.startswith('Quote '):
-                self.last_title    = text
-                self.pending_table = True
-            self.in_heading = False
+        if tag in HEADING_TAGS:
+            self.heading_depth = max(0, self.heading_depth - 1)
+            if self.heading_depth == 0:
+                self.pending_heading = False
+        elif tag == 'table':
+            self.table_depth = max(0, self.table_depth - 1)
+            self.in_se_table  = False
+            self.in_any_table = False
         elif tag in ('td', 'th') and self.in_cell:
             self.current_row.append(self.current_text.strip())
             self.in_cell = False
         elif tag == 'tr' and self.in_row:
             if len(self.current_row) >= 2:
-                self.rows.append(self.current_row[:3])
+                if self.in_se_table:
+                    self.rows.append(self.current_row[:3])
+                self.all_rows.append(self.current_row[:3])
             self.in_row = False
-        elif tag == 'table':
-            self.in_se_table = False
 
     def handle_data(self, data):
-        if self.in_heading:
-            self.current_heading += data
+        if self.pending_heading:
+            self.last_heading += data
         if self.in_cell:
             self.current_text += data
 
@@ -195,10 +198,15 @@ def _extract_quotes(rows):
     return result if any(v is not None for v in result.values()) else None
 
 def parse_html(html):
-    """Parsa HTML da qualsiasi sorgente (.com o .it). Ritorna dict o None."""
+    """Parsa HTML da qualsiasi sorgente (.com, .net, .it). Ritorna dict o None."""
     p = WinningsParser()
     p.feed(html)
-    return _extract_quotes(p.rows)
+    # Prima prova righe tabella SuperEnalotto riconosciuta dal titolo
+    result = _extract_quotes(p.rows)
+    if result:
+        return result
+    # Fallback title-agnostico: tutte le righe raccolte
+    return _extract_quotes(p.all_rows)
 
 # ── Fetch via proxy ───────────────────────────────────────────────────────────
 def fetch(url, aggressive=False):
@@ -218,7 +226,7 @@ def fetch(url, aggressive=False):
                 req = urllib.request.Request(purl, headers=HEADERS)
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     html = resp.read().decode('utf-8', errors='ignore')
-                    if len(html) > 1000 and ('Quote' in html or 'punti' in html or 'Punti' in html):
+                    if len(html) > 1000 and any(kw in html for kw in ('Quote','Punti','punti','Premi','Combinazione','vincitori','Vincitori')):
                         return html
             except Exception:
                 pass
