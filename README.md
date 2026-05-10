@@ -1,7 +1,7 @@
 # 🎰 SuperEnalotto — Analisi Statistica PWA
 
 [![GitHub Pages](https://img.shields.io/badge/Live-delpinsky.github.io%2FSuperenalotto-brightgreen)](https://delpinsky.github.io/Superenalotto/)
-[![Version](https://img.shields.io/badge/versione-v1.0.25-blue)]()
+[![Version](https://img.shields.io/badge/versione-v1.0.26-blue)]()
 [![License](https://img.shields.io/badge/licenza-uso%20personale-lightgrey)]()
 
 App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEnalotto. Scarica l'intero storico dal 1997 ad oggi direttamente da superenalotto.com, costruisce un database locale nel browser e offre strumenti statistici, previsioni AI e sistemi di gioco.
@@ -79,6 +79,31 @@ voglio numeri freddi degli ultimi due anni
 ---
 
 ## 📋 Changelog
+
+### v1.0.26 — 2026-05-11
+
+#### 🔧 `update_database.py` — Adattamento al nuovo sito superenalotto.com
+- **Nuovo parser DIV-based** — il sito ha cambiato struttura da `<table><tr><td>` a `<div class="row"><div class="cell">` con classe `boxArchiveNumbers`; riscritto il parser per estrarre numeri e Jolly dalla nuova struttura
+- **Nuovo URL archivio** — aggiornato da `/archivio/estrazioni?year=YYYY` a `/archivio/estrazioni-YYYY`
+- **Scraping 2022-2026 ripristinato** — tutte le 830 date ora correttamente nel database
+
+#### 🔧 `update_vincite.py` — Riscritto con multi-sorgente e parser robusto
+- **Nuovo parser DIV-based per `.com`** — classe `WinningsParser` riscritta per la nuova struttura `tableHeader1` / `row` / `cell` di superenalotto.com
+- **Nuova sorgente `.net`** — aggiunto `superenalotto.net` come sorgente di backup con parser TABLE dedicato (`WinningsParserNet`); usa la prima riga `"N punti"` come punto di partenza per saltare le sezioni WinBox
+- **Catena di fallback** — `superenalotto.com → superenalotto.net → superenalotto.it`; il fallback `.net`/`.it` scatta anche quando `.com` risponde ma la sezione quote è vuota (es. 2023-02-07)
+- **Fix numeri italiani** — parser `parse_quote()` gestisce correttamente il formato `54.019,52 €` (punti migliaia + virgola decimale)
+- **Database completo** — 830/830 quote valide su 4194 estrazioni (1997-2026)
+
+#### 🔧 `index.html` — Fix caricamento vincite lazy
+- **Fix `vData` stantio** — il valore veniva letto una volta sola alla creazione della card; ora al click rilegge `getVincite(dr.date)` in tempo reale per intercettare il caricamento asincrono di `vinciteDB`
+- **Cache di sessione** — dopo `fetchWinningsLive` il risultato viene salvato in `vinciteDB[dr.date]` evitando ricaricamenti nella stessa sessione
+- **Auto-rimozione badge** — dopo il caricamento di `vinciteDB`, i badge "dati non disponibili" vengono rimossi automaticamente da tutte le card già renderizzate (classe `v-no-data-badge`)
+- **Render diretto da cache** — se `vinciteDB` si è caricato nel frattempo, la card mostra i dati senza nessun fetch live
+- **Fix parser JS** — `parseWinningsHtml` aggiornato alla struttura DIV; fix parsing numeri italiani con punti migliaia
+
+#### ⚙️ Nuovi workflow GitHub Actions
+- **`update_vincite_retry.yml`** — retry parallelo (6 job su range 5 anni) per tutte le date `{}` del database; merge degli artifact e commit automatico
+- **`update_vincite_fix.yml`** — fix chirurgico: accetta una lista di date `YYYY-MM-DD` separate da virgola, le forza a `{}` e le ri-scrapa immediatamente; utile per correggere dati errati senza riprocessare l'intero database
 
 ### v1.0.25 — 2026-05-01
 - **Fix bug `Media osservata: NaN×`** — causa radice: la funzione `topN()` usava destructuring `{num, score}` perdendo silenziosamente `rawFreq`, `lastDate` e tutte le altre proprietà degli oggetti. Ora itera con `for (const item of scored)` preservando l'intero oggetto
