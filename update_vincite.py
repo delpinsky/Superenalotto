@@ -62,69 +62,112 @@ def build_url_it(date_str, concorso_n):
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
 class WinningsParser(HTMLParser):
-    """Estrae righe tabella Quote SuperEnalotto — compatibile con .com nuovo e vecchio layout."""
-
-    HEADING_TAGS = {'h1','h2','h3','h4','h5','h6','strong','b'}
+    """Estrae quote da superenalotto.com/risultati-estrazione/DD-MM-YYYY
+    Il sito usa <div class="table"> con <div class="row"> e <div class="cell">
+    NON usa <table><tr><td>.
+    Struttura colonne: [Premio/categoria] [Valore € o "-"] [Vincitori]
+    """
 
     def __init__(self):
         super().__init__()
-        self.table_depth  = 0
-        self.in_se_table  = False
-        self.last_heading = ''
-        self.pending_h    = False
-        self.in_row = self.in_cell = False
-        self.current_row  = []
-        self.current_text = ''
-        self.rows     = []   # righe tabella SuperEnalotto
-        self.all_rows = []   # fallback: tutte le righe
+        self.sections       = {}   # title → [rows]
+        self.current_section = None
+        self.in_header1     = False
+        self.in_row         = False
+        self.in_cell        = False
+        self.current_cells  = []
+        self.current_text   = ''
+        self.div_depth      = 0    # profondità div mentre siamo in un row
+        self.row_div_depth  = 0
+
+    def _get_class(self, attrs):
+        return dict(attrs).get('class', '')
 
     def handle_starttag(self, tag, attrs):
-        if tag in self.HEADING_TAGS:
-            self.pending_h    = True
-            self.last_heading = ''
-        elif tag == 'table':
-            self.table_depth += 1
-            title = self.last_heading.strip()
-            is_se = ('SuperEnalotto' in title or 'Quote' in title or not title) and                     'SuperStar' not in title and 'WinBox' not in title
-            self.in_se_table = is_se
-            self.pending_h   = False
-        elif tag == 'tr' and self.table_depth >= 1:
-            self.in_row      = True
-            self.current_row = []
-        elif tag in ('td', 'th') and self.in_row:
-            self.in_cell      = True
+        if tag != 'div':
+            return
+        cls = self._get_class(attrs)
+        classes = cls.split()
+
+        if 'tableHeader1' in classes:
+            self.in_header1  = True
             self.current_text = ''
 
+        elif 'row' in classes and 'tableHeader' not in cls and 'tableFooter' not in cls:
+            if self.current_section is not None:
+                self.in_row        = True
+                self.current_cells = []
+                self.row_div_depth = 0
+
+        elif 'cell' in classes and self.in_row:
+            self.in_cell      = True
+            self.current_text = ''
+            self.div_depth    = 0
+
+        elif self.in_cell:
+            self.div_depth += 1
+
     def handle_endtag(self, tag):
-        if tag in self.HEADING_TAGS:
-            self.pending_h = False
-        elif tag == 'table':
-            self.table_depth  = max(0, self.table_depth - 1)
-            self.in_se_table  = False
-        elif tag in ('td', 'th') and self.in_cell:
-            self.current_row.append(self.current_text.strip())
-            self.in_cell = False
-        elif tag == 'tr' and self.in_row:
-            if len(self.current_row) >= 2:
-                if self.in_se_table:
-                    self.rows.append(self.current_row[:3])
-                self.all_rows.append(self.current_row[:3])
-            self.in_row = False
+        if tag != 'div':
+            return
+        if self.in_header1:
+            title = self.current_text.strip()
+            if title:
+                if title not in self.sections:
+                    self.sections[title] = []
+                self.current_section = title
+            self.in_header1 = False
+
+        elif self.in_cell:
+            if self.div_depth > 0:
+                self.div_depth -= 1
+            else:
+                self.current_cells.append(self.current_text.strip())
+                self.in_cell = False
+
+        elif self.in_row:
+            self.row_div_depth -= 1
+            if self.row_div_depth < 0:
+                # Fine del div.row
+                if len(self.current_cells) >= 2 and self.current_section:
+                    cat   = self.current_cells[0]
+                    val   = self.current_cells[1] if len(self.current_cells) > 1 else '-'
+                    nwin  = self.current_cells[2] if len(self.current_cells) > 2 else '0'
+                    # Salta righe header
+                    if not re.match(r'^(premio|valore|vincitori)', cat, re.I):
+                        self.sections[self.current_section].append([cat, val, nwin])
+                self.in_row = False
+                self.current_cells = []
 
     def handle_data(self, data):
-        if self.pending_h:
-            self.last_heading += data
-        if self.in_cell:
+        if self.in_header1 or self.in_cell:
             self.current_text += data
+
+    @property
+    def rows(self):
+        """Ritorna le righe della sezione Quote SuperEnalotto."""
+        for title, rows in self.sections.items():
+            if 'SuperEnalotto' in title and 'SuperStar' not in title and 'WinBox' not in title:
+                return rows
+        return []
+
+    @property
+    def all_rows(self):
+        """Tutte le righe di tutte le sezioni."""
+        all_r = []
+        for rows in self.sections.values():
+            all_r.extend(rows)
+        return all_r
 
 
 def parse_html(html):
-    """Parsa HTML da qualsiasi sorgente (.com, .net, .it). Ritorna dict o None."""
+    """Parsa HTML da superenalotto.com/risultati-estrazione/DD-MM-YYYY. Ritorna dict o None."""
     p = WinningsParser()
     p.feed(html)
     result = _extract_quotes(p.rows)
     if result:
         return result
+    # Fallback: tutte le righe di tutte le sezioni
     return _extract_quotes(p.all_rows)
 
 # ── Fetch via proxy ───────────────────────────────────────────────────────────
@@ -145,7 +188,7 @@ def fetch(url, aggressive=False):
                 req = urllib.request.Request(purl, headers=HEADERS)
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     html = resp.read().decode('utf-8', errors='ignore')
-                    if len(html) > 1000 and any(kw in html for kw in ('Quote','punti','Punti','WinBox','SuperStar')):
+                    if len(html) > 1000 and ('punti' in html or 'tableHeader1' in html or 'Quote' in html):
                         return html
             except Exception:
                 pass
