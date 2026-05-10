@@ -4,7 +4,7 @@ update_vincite.py — Scraping quote SuperEnalotto
 Costruisce/aggiorna vincite.json con le quote per ogni concorso.
 
 Sorgenti (in ordine di priorità):
-  1. superenalotto.com/risultati/estrazione-D-MM-YYYY
+  1. superenalotto.com/risultati-estrazione/DD-MM-YYYY  (nuovo layout dal 2026)
   2. superenalotto.it/archivio-estrazioni/concorso-N/D-mese-YYYY  (fallback)
 
 Struttura vincite.json:
@@ -62,31 +62,37 @@ def build_url_it(date_str, concorso_n):
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
 class WinningsParser(HTMLParser):
-    """Estrae le righe della tabella Quote SuperEnalotto (non SuperStar/WinBox)."""
+    """Estrae le righe della tabella Quote SuperEnalotto (non SuperStar/WinBox).
+    Compatibile con il vecchio layout (h2) e il nuovo (h3, h4, p).
+    """
+    # Tag che possono contenere il titolo di sezione "Quote SuperEnalotto"
+    HEADING_TAGS = {'h2', 'h3', 'h4', 'p', 'strong', 'b'}
+
     def __init__(self):
         super().__init__()
-        self.in_se_table = False
+        self.in_heading    = False
+        self.current_heading = ''
         self.pending_table = False
-        self.last_heading = ''
-        # Tag considerati "heading" (il sito ha cambiato da h2 ad altri tag)
-        self._heading_tags = {'h1','h2','h3','h4','h5','h6'}
-        self.in_heading = False
+        self.last_title    = ''
+        self.in_se_table   = False
         self.in_row = self.in_cell = False
-        self.current_row = []
-        self.current_text = ''
-        self.rows = []
+        self.current_row   = []
+        self.current_text  = ''
+        self.rows          = []
 
     def handle_starttag(self, tag, attrs):
-        if tag in self._heading_tags:
+        if tag in self.HEADING_TAGS:
             self.in_heading = True
-            self.pending_table = True
-            self.last_heading = ''
+            self.current_heading = ''
         elif tag == 'table' and self.pending_table:
-            title = self.last_heading
+            title = self.last_title
             self.in_se_table = ('SuperEnalotto' in title and
                                 'SuperStar' not in title and
                                 'WinBox' not in title)
             self.pending_table = False
+        elif tag == 'table':
+            # Tabella senza pending → non è quella che cerchiamo
+            self.in_se_table = False
         elif tag == 'tr' and self.in_se_table:
             self.in_row = True
             self.current_row = []
@@ -95,7 +101,12 @@ class WinningsParser(HTMLParser):
             self.current_text = ''
 
     def handle_endtag(self, tag):
-        if tag in self._heading_tags:
+        if tag in self.HEADING_TAGS and self.in_heading:
+            text = self.current_heading.strip()
+            # Imposta pending solo se il testo inizia con "Quote "
+            if text.startswith('Quote '):
+                self.last_title    = text
+                self.pending_table = True
             self.in_heading = False
         elif tag in ('td', 'th') and self.in_cell:
             self.current_row.append(self.current_text.strip())
@@ -109,7 +120,7 @@ class WinningsParser(HTMLParser):
 
     def handle_data(self, data):
         if self.in_heading:
-            self.last_heading += data
+            self.current_heading += data
         if self.in_cell:
             self.current_text += data
 
