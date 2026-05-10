@@ -1,0 +1,77 @@
+name: Fix Vincite per Data
+
+on:
+  workflow_dispatch:
+    inputs:
+      dates:
+        description: 'Date da ri-scrapare (YYYY-MM-DD, separate da virgola)'
+        required: true
+        default: '2023-02-07'
+      aggressive:
+        description: 'Modalità aggressiva (retry multipli)'
+        required: false
+        default: 'true'
+        type: boolean
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Forza {} sulle date specificate
+        run: |
+          python3 - << 'EOF'
+          import json, os
+          dates = [d.strip() for d in '${{ github.event.inputs.dates }}'.split(',') if d.strip()]
+          if not os.path.exists('vincite.json'):
+              print('vincite.json non trovato'); exit(1)
+          with open('vincite.json') as f:
+              data = json.load(f)
+          vincite = data.get('vincite', {})
+          for d in dates:
+              if d in vincite:
+                  old = vincite[d]
+                  vincite[d] = {}
+                  print(f'Reset {d}: {old} → {{}}')
+              else:
+                  print(f'ATTENZIONE: {d} non trovata nel database')
+          with open('vincite.json', 'w') as f:
+              json.dump(data, f, separators=(',',':'), ensure_ascii=False)
+          print(f'Salvato vincite.json — {len(dates)} date resettate')
+          EOF
+
+      - name: Ri-scrapa le date
+        run: |
+          # Calcola from-year e to-year dalle date fornite
+          python3 - << 'EOF'
+          dates = [d.strip() for d in '${{ github.event.inputs.dates }}'.split(',') if d.strip()]
+          years = sorted({d[:4] for d in dates})
+          from_y, to_y = years[0], years[-1]
+          with open('fix_years.env', 'w') as f:
+              f.write(f'FROM_YEAR={from_y}\nTO_YEAR={to_y}\n')
+          print(f'Range: {from_y} → {to_y}')
+          EOF
+          source fix_years.env
+          AGGRESSIVE_FLAG=""
+          if [ "${{ github.event.inputs.aggressive }}" = "true" ]; then
+            AGGRESSIVE_FLAG="--aggressive"
+          fi
+          python update_vincite.py \
+            --from-year $FROM_YEAR \
+            --to-year $TO_YEAR \
+            --retry-empty $AGGRESSIVE_FLAG
+
+      - name: Commit e push
+        run: |
+          git config user.name  "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add vincite.json
+          git diff --cached --quiet || git commit -m "Fix vincite ${{ github.event.inputs.dates }} [skip ci]"
+          git push
