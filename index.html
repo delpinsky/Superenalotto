@@ -2240,7 +2240,7 @@ function renderSearchDraw(dr, index) {
   const vToggleBtn = document.createElement('button');
   vToggleBtn.style.cssText = 'display:flex;align-items:center;gap:8px;background:none;border:none;cursor:pointer;padding:0;color:var(--text);width:100%;text-align:left';
   vToggleBtn.innerHTML = '<span style="font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--muted)">📊 Vincite concorso</span>'
-    + (vData ? '' : '<span style="font-size:10px;color:var(--muted);font-style:italic"> · dati non disponibili</span>')
+    + (vData ? '' : '<span class="v-no-data-badge" style="font-size:10px;color:var(--muted);font-style:italic"> · dati non disponibili</span>')
     + '<span class="v-arrow" style="margin-left:auto;color:var(--muted);font-size:13px;transition:transform .3s">▼</span>';
 
   const vBody = document.createElement('div');
@@ -2279,11 +2279,15 @@ function renderSearchDraw(dr, index) {
     const arrow = vToggleBtn.querySelector('.v-arrow');
     const isOpen = vBody.style.maxHeight !== '0px' && vBody.style.maxHeight !== '';
     if (isOpen) { vBody.style.maxHeight='0px'; if(arrow) arrow.style.transform='rotate(0deg)'; return; }
-    if (!vData) {
+    // Rileggi vinciteDB al momento del click (potrebbe essersi caricato dopo il render)
+    const freshData = vData || getVincite(dr.date);
+    if (!freshData) {
       vBody.innerHTML='<div style="padding:10px 0;font-size:12px;color:var(--muted)">&#9203; Caricamento vincite...</div>';
       vBody.style.maxHeight='60px'; if(arrow) arrow.style.transform='rotate(180deg)';
       const live=await fetchWinningsLive(dr.date);
       if (live) {
+        // Salva in vinciteDB per evitare ricaricamenti nella stessa sessione
+        vinciteDB[dr.date] = live;
         const CATS=[{k:'p6',l:'6 punti'},{k:'p5j',l:'5+J'},{k:'p5',l:'5 punti'},{k:'p4',l:'4 punti'},{k:'p3',l:'3 punti'},{k:'p2',l:'2 punti'}];
         let t='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px"><colgroup><col><col style="width:150px"></colgroup><thead><tr>'
             +'<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
@@ -2304,6 +2308,25 @@ function renderSearchDraw(dr, index) {
         vBody.style.maxHeight='60px';
       }
       return;
+    }
+    // freshData disponibile da vinciteDB — renderizza se vBody è ancora vuoto
+    if (!vBody.innerHTML.includes('<table') && freshData) {
+      const CATS=[{k:'p6',l:'6 punti'},{k:'p5j',l:'5+J'},{k:'p5',l:'5 punti'},{k:'p4',l:'4 punti'},{k:'p3',l:'3 punti'},{k:'p2',l:'2 punti'}];
+      let t='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px"><colgroup><col><col style="width:150px"></colgroup><thead><tr>'
+          +'<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
+          +'<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio</th>'
+          +'</tr></thead><tbody>';
+      CATS.forEach(({k,l},i)=>{
+        const v=freshData[k],noW=v==null,isJP=i===0;
+        const bg=i%2===0?'background:var(--surface2)':'';
+        const cc=isJP?'color:var(--gold);font-weight:600':noW?'color:var(--muted)':'color:var(--text)';
+        const vc=isJP?'color:var(--gold);font-weight:600':noW?'color:var(--muted)':'color:var(--text);font-weight:500';
+        t+=`<tr style="${bg}"><td style="padding:5px 6px;${cc}">${l}</td><td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v,dr.date)}</td></tr>`;
+      });
+      t+='</tbody></table>';
+      vBody.innerHTML=t;
+      // Aggiorna badge "dati non disponibili" → rimuovilo
+      const badge=vToggleBtn.querySelector('span[style*="italic"]'); if(badge) badge.remove();
     }
     vBody.style.maxHeight='400px'; if(arrow) arrow.style.transform='rotate(180deg)';
   });
@@ -3816,6 +3839,8 @@ async function loadVinciteDB() {
     const data = await res.json();
     vinciteDB = data.vincite || {};
     console.log('vinciteDB caricato:', Object.keys(vinciteDB).length, 'concorsi');
+    // Rimuovi badge "dati non disponibili" dalle card già renderizzate
+    document.querySelectorAll('.v-no-data-badge').forEach(el => el.remove());
   } catch(e) {
     console.warn('vinciteDB non disponibile:', e.message);
   }
