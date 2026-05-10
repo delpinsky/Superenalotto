@@ -2259,48 +2259,39 @@ function renderSearchDraw(dr, index) {
       if (arrow) arrow.style.transform = 'rotate(0deg)';
       return;
     }
-    // Se non ci sono dati nel db statico, tenta il fetch live
+    // Dati non nel db statico → fetch live
     if (!vData) {
-      const loader = document.createElement('div');
-      loader.style.cssText = 'font-size:12px;color:var(--muted);padding:10px 0';
-      loader.textContent = '⏳ Caricamento vincite…';
-      vBody.innerHTML = '';
-      vBody.appendChild(loader);
+      vBody.innerHTML = '<div style="padding:10px 0;font-size:12px;color:var(--muted)">⏳ Caricamento vincite in corso…</div>';
       vBody.style.maxHeight = '60px';
       if (arrow) arrow.style.transform = 'rotate(180deg)';
-      const liveData = await fetchWinningsLive(dr.date);
-      if (liveData) {
-        const keys2 = [
-          {cat:'6 punti',         key:'p6'},
-          {cat:'5 punti + Jolly', key:'p5j'},
-          {cat:'5 punti',         key:'p5'},
-          {cat:'4 punti',         key:'p4'},
-          {cat:'3 punti',         key:'p3'},
-          {cat:'2 punti',         key:'p2'},
+      const live = await fetchWinningsLive(dr.date);
+      if (live) {
+        const CATS = [
+          {k:'p6', l:'6 punti'},{k:'p5j', l:'5 punti + Jolly'},
+          {k:'p5', l:'5 punti'},{k:'p4', l:'4 punti'},
+          {k:'p3', l:'3 punti'},{k:'p2', l:'2 punti'}
         ];
-        let tHtml2 = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:10px">';
-        tHtml2 += '<colgroup><col style="width:auto"><col style="width:160px"></colgroup>';
-        tHtml2 += '<thead><tr>'
-          + '<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
-          + '<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio unitario</th>'
-          + '</tr></thead><tbody>';
-        keys2.forEach((r2, i2) => {
-          const val2 = liveData[r2.key];
-          const isJP = i2 === 0;
-          const noW2 = val2 == null;
-          const bg2  = i2 % 2 === 0 ? 'background:var(--surface2)' : '';
-          const cc2  = isJP ? 'color:var(--gold);font-weight:600' : noW2 ? 'color:var(--muted)' : 'color:var(--text)';
-          const vc2  = isJP ? 'color:var(--gold);font-weight:600' : noW2 ? 'color:var(--muted)' : 'color:var(--text);font-weight:500';
-          tHtml2 += `<tr style="${bg2}"><td style="padding:5px 6px;${cc2}">${r2.cat}</td>`
-                  + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc2}">${fmtEuro(val2, dr.date)}</td></tr>`;
+        let t = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px">';
+        t += '<thead><tr>'
+           + '<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
+           + '<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio unitario</th>'
+           + '</tr></thead><tbody>';
+        CATS.forEach(({k,l}, i) => {
+          const v = live[k];
+          const bg = i%2===0 ? 'background:var(--surface2)' : '';
+          const isJP = i===0, noW = v==null;
+          const cc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text)';
+          const vc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text);font-weight:500';
+          t += `<tr style="${bg}"><td style="padding:5px 6px;${cc}">${l}</td>`
+             + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v, dr.date)}</td></tr>`;
         });
-        tHtml2 += '</tbody></table>';
-        vBody.innerHTML = tHtml2;
+        t += '</tbody></table>';
+        vBody.innerHTML = t;
         const notAvail = vToggleBtn.querySelector('span[style*="italic"]');
         if (notAvail) notAvail.remove();
         vBody.style.maxHeight = '400px';
       } else {
-        vBody.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0;font-style:italic">Dati vincite non disponibili per questa estrazione.</div>';
+        vBody.innerHTML = '<div style="padding:8px 0;font-size:12px;color:var(--muted);font-style:italic">Dati vincite non disponibili per questa data.</div>';
         vBody.style.maxHeight = '60px';
       }
       return;
@@ -4167,11 +4158,11 @@ function saveLastDraw(dr) {
 
 // URL per singola estrazione: superenalotto.com/risultati-estrazione/DD-MM-YYYY
 function buildWinningsUrl(dateStr) {
-  // dateStr = YYYY-MM-DD → /estrazioni/DD-MM-YYYY (superenalotto.net)
+  // dateStr = YYYY-MM-DD → /en/results/draw-DD-MM-YYYY (superenalotto.com EN, accessibile via proxy)
   const [y, m, d] = dateStr.split('-');
   const dd = d.padStart(2, '0');
   const mm = m.padStart(2, '0');
-  const url = `https://www.superenalotto.net/estrazioni/${dd}-${mm}-${y}`;
+  const url = `https://www.superenalotto.com/en/results/draw-${dd}-${mm}-${y}`;
   console.log('Winnings URL:', url);
   return url;
 }
@@ -4182,11 +4173,12 @@ function parseWinningsHtml(html) {
   const doc = new DOMParser().parseFromString(html, 'text/html');
   const sections = [];
 
+  // Cerca testo titolo sezione risalendo la DOM
   function findTitle(tableEl) {
     let el = tableEl.previousElementSibling;
     for (let i = 0; i < 8 && el; i++) {
       const t = el.textContent.trim().replace(/\s+/g,' ');
-      if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+      if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
       el = el.previousElementSibling;
     }
     const par = tableEl.parentElement;
@@ -4194,26 +4186,21 @@ function parseWinningsHtml(html) {
       let pel = par.previousElementSibling;
       for (let i = 0; i < 6 && pel; i++) {
         const t = pel.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+        if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
         pel = pel.previousElementSibling;
       }
       for (const child of par.children) {
         if (child === tableEl) break;
         const t = child.textContent.trim().replace(/\s+/g,' ');
-        if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+        if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
       }
       const grand = par.parentElement;
       if (grand) {
         let gel = grand.previousElementSibling;
         for (let i = 0; i < 4 && gel; i++) {
           const t = gel.textContent.trim().replace(/\s+/g,' ');
-          if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
+          if (t.length < 80 && /quote|premi|prize|winnings|combinazione/i.test(t)) return t;
           gel = gel.previousElementSibling;
-        }
-        for (const child of grand.children) {
-          if (child === par) break;
-          const t = child.textContent.trim().replace(/\s+/g,' ');
-          if (t.length < 80 && /quote|premi|combinazione/i.test(t)) return t;
         }
       }
     }
@@ -4222,8 +4209,48 @@ function parseWinningsHtml(html) {
     return null;
   }
 
-  function looksLikeCount(s) {
-    return /^\d[\d.\s]*$/.test(s.trim().replace(/\u00a0/g,''));
+  // Normalizza un valore monetario da qualsiasi formato a stringa leggibile
+  // Supporta: "162,059,299.71 €" (EN), "162.059.299,71 €" (IT), "0.00 €"
+  function normalizePrize(s) {
+    if (!s) return null;
+    s = s.trim().replace(/\u00a0/g,' ').replace(/\s+/g,' ');
+    if (!s || s === '-' || s === '–' || s === '—' || s === 'N/D') return null;
+    // Rimuovi simbolo valuta
+    const raw = s.replace(/[€£$]/g,'').trim();
+    if (!raw) return null;
+    // Formato EN: 162,059,299.71 → separatore migliaia=virgola, decimale=punto
+    // Formato IT: 162.059.299,71 → separatore migliaia=punto, decimale=virgola
+    let num;
+    if (/^[\d,]+\.\d{1,2}$/.test(raw)) {
+      // EN format: remove commas, keep dot
+      num = parseFloat(raw.replace(/,/g,''));
+    } else if (/^[\d.]+,\d{1,2}$/.test(raw)) {
+      // IT format: remove dots, replace comma with dot
+      num = parseFloat(raw.replace(/\./g,'').replace(',','.'));
+    } else {
+      // Fallback
+      num = parseFloat(raw.replace(/[^0-9.]/g,''));
+    }
+    if (isNaN(num)) return null;
+    // Formato output sempre IT
+    return num.toLocaleString('it-IT', {minimumFractionDigits:2, maximumFractionDigits:2}) + ' €';
+  }
+
+  function parseWinnersCount(s) {
+    if (!s) return 0;
+    return parseInt(s.replace(/[^0-9]/g,'')) || 0;
+  }
+
+  // Mappa categorie EN → IT
+  function mapCategory(cat) {
+    const c = cat.trim();
+    const map = {
+      '6':'6 punti', '5+1':'5 punti + Jolly', '5+jolly':'5 punti + Jolly',
+      '5':'5 punti', '4':'4 punti', '3':'3 punti', '2':'2 punti',
+      '6 punti':'6 punti', '5 punti + jolly':'5 punti + Jolly',
+      '5 punti':'5 punti', '4 punti':'4 punti', '3 punti':'3 punti', '2 punti':'2 punti',
+    };
+    return map[c.toLowerCase()] || c;
   }
 
   doc.querySelectorAll('table').forEach(table => {
@@ -4232,42 +4259,68 @@ function parseWinningsHtml(html) {
 
     const dataRows = [];
     rows.forEach(tr => {
-      const tds = [...tr.querySelectorAll('td')].map(td =>
-        td.textContent.trim().replace(/\s+/g,' ').replace(/\u00a0/g,' ')
-      );
-      if (tds.length < 2) return;
-      const hasNum = tds.some(t => /\d/.test(t));
-      if (!hasNum) return;
-      if (/^(premio|categoria|punti|match|prize|winners)/i.test(tds[0])) return;
-      if (!tds[0]) return;
+      const cells = [...tr.querySelectorAll('td,th')];
+      if (cells.length < 2) return;
+      const tds = cells.map(td => td.textContent.trim().replace(/\s+/g,' ').replace(/\u00a0/g,' '));
+      // Salta righe header
+      if (/^(match|category|premio|categoria|prize|winners|vincitori|punti)/i.test(tds[0])) return;
+      if (!tds[0] || !/[0-9a-zA-Z]/.test(tds[0])) return;
+
+      // Rileva formato colonne:
+      // EN .com: [Match/cat, Prize/€, Winners/n]  oppure [Match, Winners, Prize]
+      // IT .com: [categoria, valore€, vincitori]
+      // IT .net: [categoria, vincitori, valore€]
+      let cat = mapCategory(tds[0]);
       let prize = null, winners = '0';
-      if (tds.length >= 3 && looksLikeCount(tds[1]) && !/[€,]/.test(tds[1])) {
-        winners = tds[1];
-        prize   = (!tds[2] || tds[2] === '-' || tds[2] === '–') ? null : tds[2];
+
+      if (tds.length >= 3) {
+        const col1HasEuro = /[€£$]|\d[,.]\d{2}\s*€/.test(tds[1]);
+        const col2HasEuro = /[€£$]|\d[,.]\d{2}\s*€/.test(tds[2]);
+        const col1IsCount = /^[\d.,\s]+$/.test(tds[1]) && !col1HasEuro;
+        const col2IsCount = /^[\d.,\s]+$/.test(tds[2]) && !col2HasEuro;
+
+        if (col1HasEuro && !col2HasEuro) {
+          // [cat, prize€, winners]
+          prize   = normalizePrize(tds[1]);
+          winners = tds[2];
+        } else if (col2HasEuro && !col1HasEuro) {
+          // [cat, winners, prize€]
+          winners = tds[1];
+          prize   = normalizePrize(tds[2]);
+        } else if (col1IsCount && !col2IsCount) {
+          // [cat, winners, prize] senza simbolo €
+          winners = tds[1];
+          prize   = normalizePrize(tds[2]);
+        } else {
+          // Default: [cat, prize, winners]
+          prize   = normalizePrize(tds[1]);
+          winners = tds[2];
+        }
       } else {
-        prize   = (!tds[1] || tds[1] === '-' || tds[1] === '–') ? null : tds[1];
-        winners = tds[2] || '0';
+        prize = normalizePrize(tds[1]);
       }
-      dataRows.push({ cat: tds[0], prize, winners });
+
+      // Se winners=0 e prize=0.00 → non vinto (jackpot accumulato)
+      const wNum = parseWinnersCount(winners);
+      if (wNum === 0) prize = null;
+
+      dataRows.push({ cat, prize, winners: String(wNum) });
     });
+
     if (!dataRows.length) return;
 
-    // Scarta tabelle aggregate tipo "Valore del jackpot / Totale dei premi"
-    const isAggregate = dataRows.length < 4 ||
-      dataRows.every(r => /totale|valore del|total/i.test(r.cat));
-    if (isAggregate) return;
+    // Scarta tabelle aggregate (riepilogo jackpot con < 4 categorie reali)
+    const realCats = dataRows.filter(r => /punti|^[2-6]$|5\+/i.test(r.cat));
+    if (realCats.length < 3 && dataRows.length < 4) return;
 
     let title = findTitle(table);
-    if (!title) {
-      const caption = table.querySelector('caption');
-      title = caption ? caption.textContent.trim() : null;
-    }
     if (!title) {
       const cats = dataRows.map(r => r.cat).join(' ');
       if (/superstar|\bSS\b/i.test(cats)) title = 'Quote SuperStar';
       else if (/winbox/i.test(cats))        title = 'Quote WinBox';
-      else                                   title = 'Quote SuperEnalotto';
+      else                                   title = 'Premi SuperEnalotto';
     }
+
     if (!sections.find(s => s.title === title)) {
       sections.push({ title, rows: dataRows });
     }
@@ -4349,7 +4402,7 @@ async function fetchWinningsLive(dateStr) {
       const html = await new Promise((resolve, reject) => {
         const xhr = new XMLHttpRequest();
         xhr.open('GET', proxyUrl);
-        xhr.timeout = 10000;
+        xhr.timeout = 12000;
         xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
         xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
         xhr.onerror   = () => reject(new Error('XHR error'));
@@ -4359,26 +4412,29 @@ async function fetchWinningsLive(dateStr) {
       if (html.length < 500) continue;
       const secs = parseWinningsHtml(html);
       if (!secs.length) continue;
-      const seSec = secs.find(s => /superenalotto/i.test(s.title) && !/superstar|winbox/i.test(s.title)) || secs[0];
-      if (!seSec) continue;
+      // Prende la sezione SuperEnalotto principale
+      const seSec = secs.find(s => /superenalotto|premi/i.test(s.title) && !/superstar|winbox/i.test(s.title)) || secs[0];
+      if (!seSec || !seSec.rows.length) continue;
+      // Mappa righe → keys standard {p6,p5j,p5,p4,p3,p2}
       const keys = ['p6','p5j','p5','p4','p3','p2'];
       const result = {};
       seSec.rows.forEach((r, i) => {
         if (i >= keys.length) return;
         const w = parseInt(String(r.winners).replace(/[^0-9]/g,'')) || 0;
-        if (w === 0) { result[keys[i]] = null; return; }
-        const ps = r.prize ? String(r.prize).replace(/[^0-9.,]/g,'').replace(/\.(?=.*\.)/g,'').replace(',','.') : '';
+        if (w === 0 || r.prize === null) { result[keys[i]] = null; return; }
+        // prize è già in formato "52.205,24 €" → estrai numero
+        const ps = String(r.prize).replace(/[€£$\s]/g,'').replace(/\./g,'').replace(',','.');
         const pv = parseFloat(ps);
-        result[keys[i]] = isNaN(pv) ? null : pv;
+        result[keys[i]] = isNaN(pv) || pv === 0 ? null : pv;
       });
       keys.forEach(k => { if (!(k in result)) result[k] = null; });
       if (Object.values(result).some(v => v !== null)) return result;
-    } catch(e) { /* prossimo proxy */ }
+    } catch(e) { console.warn('fetchWinningsLive proxy', pi, e.message); }
   }
   return null;
 }
 
-// Fetch vincite da superenalotto.net via proxy CORS (con aggiornamento UI completo)
+// Fetch vincite con aggiornamento UI completo
 async function fetchWinnings(dateStr, concorsoN) {
   const section = document.getElementById('winnings-section');
   const loading = document.getElementById('winnings-loading');
@@ -4445,7 +4501,7 @@ async function fetchWinnings(dateStr, concorsoN) {
     wrap.innerHTML = '<div style="font-size:12px;color:var(--muted);padding:8px 0">' +
       'dati vincite non disponibili · ' +
       '<a href="' + fallbackUrl + '" target="_blank" rel="noopener" ' +
-      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.net ↗</a>' +
+      'style="color:var(--gold);text-decoration:none">vedi su superenalotto.com (EN) ↗</a>' +
       '</div>';
     wrap.style.display = 'block';
   }
@@ -4632,8 +4688,8 @@ document.getElementById('json-import-input').addEventListener('change', e => {
       showLastDrawFromDB();
       document.getElementById('sistema-section').style.display = 'block';
       document.getElementById('results').style.display = 'block';
-      // Aggiorna automaticamente all'ultima estrazione reale senza click manuale
-      setTimeout(() => fetchLastDraw(), 800);
+      // Aggiorna automaticamente all'ultima estrazione
+      setTimeout(() => fetchLastDraw(), 1000);
     } catch(err) {
       setSt('err', 'Errore nel file JSON: ' + err.message);
     }
@@ -5521,9 +5577,11 @@ async function fetchLastDraw() {
         if (!html.includes('estrazioni')) throw new Error('Pagina vuota o proxy cache');
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
-        const existingThisYear = draws.filter(d => d.date.startsWith(String(thisYear))).length;
-        if (existingThisYear > 0 && parsed.length < existingThisYear) {
-          throw new Error(`Risposta stale: ${parsed.length} < ${existingThisYear} nel db`);
+        // Anti-stale: accetta solo se la data più recente è >= quella nel db
+        const latestInDb = draws.length ? draws[draws.length-1].date : '';
+        const latestParsed = parsed.reduce((max, d) => d.date > max ? d.date : max, '');
+        if (latestInDb && latestParsed < latestInDb) {
+          throw new Error('Risposta stale: ' + latestParsed + ' < ' + latestInDb);
         }
         yearDraws = parsed;
         break; // proxy worked
@@ -6298,8 +6356,8 @@ async function ghDownload(silent) {
     if (typeof showForecastSection === 'function') showForecastSection();
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
     fetchJackpotOnly();
-    // Aggiorna automaticamente all'ultima estrazione reale senza click manuale
-    setTimeout(() => fetchLastDraw(), 800);
+    // Aggiorna automaticamente all'ultima estrazione senza click manuale
+    setTimeout(() => fetchLastDraw(), 1000);
     return true;
   } catch(e) {
     if (!silent) ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');

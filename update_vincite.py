@@ -33,7 +33,7 @@ VINCITE_FILE = 'vincite.json'
 DELAY_SEC  = 1.0   # pausa tra richieste
 MAX_ERRORS = 10    # errori consecutivi prima di fermarsi su un anno
 
-BASE_URL_COM = 'https://www.superenalotto.net/estrazioni/{d:02d}-{m:02d}-{y}'
+BASE_URL_COM = 'https://www.superenalotto.com/en/results/draw-{d:02d}-{m:02d}-{y}'
 BASE_URL_IT  = 'https://www.superenalotto.it/archivio-estrazioni/concorso-{n}/{d}-{mese}-{y}'
 MESI_IT = ['','gennaio','febbraio','marzo','aprile','maggio','giugno',
            'luglio','agosto','settembre','ottobre','novembre','dicembre']
@@ -61,57 +61,53 @@ def build_url_it(date_str, concorso_n):
     return BASE_URL_IT.format(n=concorso_n, d=int(d), mese=MESI_IT[int(m)], y=y)
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
-HEADING_TAGS = {'h1','h2','h3','h4','h5','h6','p','strong','b'}
-SE_TITLE_RE  = re.compile(r'SuperEnalotto|Quote|Premi|Combinazione', re.I)
-SKIP_RE      = re.compile(r'SuperStar|WinBox', re.I)
-
 class WinningsParser(HTMLParser):
-    """Estrae righe tabella quote — compatibile con superenalotto.net e .com."""
+    """Estrae righe tabella vincite — supporta superenalotto.com/en, .com/it, .net, .it."""
+
+    CAT_MAP = {
+        '6':'6 punti','5+1':'5 punti + Jolly','5+jolly':'5 punti + Jolly',
+        '5':'5 punti','4':'4 punti','3':'3 punti','2':'2 punti',
+    }
+    HEADING_TAGS = {'h1','h2','h3','h4','h5','h6','strong','b'}
+    SE_RE   = re.compile(r'prize|winnings|premi|quote|superenalotto', re.I)
+    SKIP_RE = re.compile(r'SuperStar|WinBox|superstar|winbox')
+
     def __init__(self):
         super().__init__()
+        self.table_depth  = 0
         self.in_se_table  = False
-        self.in_any_table = False
-        self.pending_heading = False
         self.last_heading = ''
-        self.heading_depth = 0
+        self.pending_h    = False
         self.in_row = self.in_cell = False
-        self.current_row = []
+        self.current_row  = []
         self.current_text = ''
-        self.rows     = []   # righe tabella SuperEnalotto
+        self.rows     = []   # righe tabella SE principale
         self.all_rows = []   # fallback: tutte le righe
-        self.table_depth = 0
 
     def handle_starttag(self, tag, attrs):
-        if tag in HEADING_TAGS:
-            self.pending_heading = True
+        if tag in self.HEADING_TAGS:
+            self.pending_h    = True
             self.last_heading = ''
-            self.heading_depth += 1
         elif tag == 'table':
             self.table_depth += 1
             title = self.last_heading.strip()
-            if title:
-                self.in_se_table = bool(SE_TITLE_RE.search(title)) and not SKIP_RE.search(title)
-            else:
-                self.in_se_table = True   # nessun titolo → accetta (fallback)
-            self.in_any_table = True
-            self.pending_heading = False
+            self.in_se_table = (not title or bool(self.SE_RE.search(title))) \
+                               and not self.SKIP_RE.search(title)
+            self.pending_h = False
         elif tag == 'tr' and self.table_depth >= 1:
-            self.in_row = True
+            self.in_row      = True
             self.current_row = []
-        elif tag in ('td', 'th') and self.in_row:
-            self.in_cell = True
+        elif tag in ('td','th') and self.in_row:
+            self.in_cell      = True
             self.current_text = ''
 
     def handle_endtag(self, tag):
-        if tag in HEADING_TAGS:
-            self.heading_depth = max(0, self.heading_depth - 1)
-            if self.heading_depth == 0:
-                self.pending_heading = False
+        if tag in self.HEADING_TAGS:
+            self.pending_h = False
         elif tag == 'table':
-            self.table_depth = max(0, self.table_depth - 1)
+            self.table_depth  = max(0, self.table_depth - 1)
             self.in_se_table  = False
-            self.in_any_table = False
-        elif tag in ('td', 'th') and self.in_cell:
+        elif tag in ('td','th') and self.in_cell:
             self.current_row.append(self.current_text.strip())
             self.in_cell = False
         elif tag == 'tr' and self.in_row:
@@ -122,90 +118,23 @@ class WinningsParser(HTMLParser):
             self.in_row = False
 
     def handle_data(self, data):
-        if self.pending_heading:
+        if self.pending_h:
             self.last_heading += data
         if self.in_cell:
             self.current_text += data
 
+    def map_cat(self, c):
+        return self.CAT_MAP.get(c.strip().lower(), c.strip())
 
-# Tasso di conversione Lire → Euro (fisso dal 1 gennaio 1999)
-_LIRE_TO_EURO = 1.0 / 1936.27
-
-def parse_quote(text):
-    """'52.205,24 €' → 52205.24,  '880.400,00 L' → 454.71 (lire→euro),  '-' → None"""
-    text = str(text).strip().replace('\xa0','').replace('\u00a0','')
-    # Rileva se è in Lire (termina con L o lire)
-    import re as _re
-    is_lire = bool(_re.search(r'\bL\s*$', text))
-    text = text.replace('€','')
-    text = _re.sub(r'\s*L\s*$', '', text).strip()
-    if not text or text in ('-','—','N/D','–'):
-        return None
-    try:
-        val = float(text.replace('.','').replace(',','.'))
-        if not val:
-            return None
-        if is_lire:
-            val = round(val * _LIRE_TO_EURO, 2)
-        return val
-    except ValueError:
-        return None
-
-def parse_vincitori(text):
-    """'23.212' → 23212"""
-    try:
-        return int(str(text).strip().replace('.','').replace(',','').replace('\xa0',''))
-    except ValueError:
-        return None
-
-def _extract_quotes(rows):
-    """
-    Estrae le 6 quote da una lista di righe (formato .com o .it).
-    .com: [categoria, valore, vincitori]
-    .it:  [categoria, vincitori, valore]
-    Distingue automaticamente dall'ordine delle colonne.
-    """
-    skip = {'premio','categoria','vincitori','valori in euro',''}
-    rows = [r for r in rows if r[0].lower().strip() not in skip]
-    if len(rows) < 2:
-        return None  # meno di 2 righe dati → sicuramente vuota
-
-    # Determina formato: se col[1] è numerico (vincitori) → formato .it
-    def is_numeric(s):
-        try: int(s.strip().replace('.','').replace(',','')); return True
-        except: return False
-
-    it_format = len(rows[0]) >= 2 and is_numeric(rows[0][1])
-
-    keys = ['p6','p5j','p5','p4','p3','p2']
-    result = {}
-    for i, key in enumerate(keys):
-        if i >= len(rows):
-            result[key] = None
-            continue
-        r = rows[i]
-        if it_format:
-            # .it: [cat, vincitori, valore]
-            winners = parse_vincitori(r[1]) if len(r) > 1 else None
-            prize   = parse_quote(r[2])     if len(r) > 2 else None
-        else:
-            # .com: [cat, valore, vincitori]
-            prize   = parse_quote(r[1])     if len(r) > 1 else None
-            winners = parse_vincitori(r[2]) if len(r) > 2 else None
-        # FIX: se vincitori==0, il valore mostrato è il jackpot accumulato → None
-        result[key] = None if winners == 0 else prize
-
-    return result if any(v is not None for v in result.values()) else None
 
 def parse_html(html):
-    """Parsa HTML da qualsiasi sorgente (.com, .net, .it). Ritorna dict o None."""
+    """Parsa HTML da qualsiasi sorgente (.com/en, .com/it, .net, .it). Ritorna dict o None."""
     p = WinningsParser()
     p.feed(html)
-    # Prima prova righe tabella SuperEnalotto riconosciuta dal titolo
     result = _extract_quotes(p.rows)
     if result:
         return result
-    # Fallback title-agnostico: tutte le righe raccolte
+    # Fallback title-agnostico
     return _extract_quotes(p.all_rows)
 
 # ── Fetch via proxy ───────────────────────────────────────────────────────────
@@ -226,7 +155,7 @@ def fetch(url, aggressive=False):
                 req = urllib.request.Request(purl, headers=HEADERS)
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     html = resp.read().decode('utf-8', errors='ignore')
-                    if len(html) > 1000 and any(kw in html for kw in ('Quote','Punti','punti','Premi','Combinazione','vincitori','Vincitori')):
+                    if len(html) > 1000 and any(kw in html for kw in ('Prize','Winners','Quote','punti','Punti','Premi','Vincitori')):
                         return html
             except Exception:
                 pass
