@@ -14,7 +14,7 @@ GITHUB_TOKEN = os.environ.get('GITHUB_TOKEN', '')
 GITHUB_REPO  = 'delpinsky/Superenalotto'
 JSON_FILE    = 'storico-estrazioni-superenalotto.json'
 GITHUB_API   = f'https://api.github.com/repos/{GITHUB_REPO}/contents/{JSON_FILE}'
-BASE_URL     = 'https://www.superenalotto.com/risultati'
+BASE_URL     = 'https://www.superenalotto.com/archivio/estrazioni'
 THIS_YEAR    = date.today().year
 
 
@@ -39,51 +39,45 @@ def fetch_url(url, retries=3):
 
 def parse_year_page(html, year):
     """
-    Replica esatta del parser JS dell'app:
-    - Cerca righe <tr> con link estrazione-DD-MM-YYYY
-    - Estrae tutti i <td> con numeri 1-90 dalla stessa riga
+    Parser DIV-based per superenalotto.com/archivio/estrazioni-YYYY.
+    Struttura:
+      <div class="boxArchiveNumbers">
+        <div class="boxarchiveDate">09 maggio 2026</div>
+        <div class="boxArchiveNumber">9</div>  (x6 numeri principali)
+        <div class="boxArchiveNumber boxArchiveNumberRed">11<div>Jolly</div></div>
+        <div class="boxArchiveNumber boxArchiveNumberstar">11<div>Superstar</div></div>
+      </div>
     """
+    MESI = {
+        'gennaio':'01','febbraio':'02','marzo':'03','aprile':'04',
+        'maggio':'05','giugno':'06','luglio':'07','agosto':'08',
+        'settembre':'09','ottobre':'10','novembre':'11','dicembre':'12'
+    }
     draws = []
-
-    # Trova tutti i link estrazione e le loro posizioni
-    for m in re.finditer(r'estrazione-(\d{2})-(\d{2})-(\d{4})', html):
-        day, month, yr = m.group(1), m.group(2), m.group(3)
+    for part in re.split(r'<div[^>]+class=["\']boxArchiveNumbers["\']', html)[1:]:
+        dm = re.search(r'boxarchiveDate[^>]*>(\d{1,2})\s+(\w+)\s+(\d{4})', part, re.I)
+        if not dm:
+            continue
+        day, month_it, yr = dm.group(1), dm.group(2).lower(), dm.group(3)
         if int(yr) != year:
             continue
-
-        date_str = f'{yr}-{month}-{day}'
-
-        # Trova l'inizio del <tr> che contiene questo link
-        tr_start = html.rfind('<tr', 0, m.start())
-        if tr_start < 0:
+        month = MESI.get(month_it)
+        if not month:
             continue
-
-        # Trova la fine del </tr>
-        tr_end = html.find('</tr>', m.start())
-        if tr_end < 0:
+        date_str = f'{yr}-{month}-{day.zfill(2)}'
+        jolly_m = re.search(r'boxArchiveNumberRed[^>]*>(\d{1,2})', part)
+        ss_m    = re.search(r'boxArchiveNumberstar[^>]*>(\d{1,2})', part)
+        jolly = int(jolly_m.group(1)) if jolly_m else None
+        ss    = int(ss_m.group(1))    if ss_m    else None
+        all_nums = [int(n) for n in re.findall(r'class=["\']boxArchiveNumber[^"\'>]*["\'][^>]*>(\d{1,2})', part)]
+        mains = all_nums[:6]
+        if len(mains) < 6 or not jolly:
             continue
-
-        row_html = html[tr_start:tr_end]
-
-        # Estrai tutti i testi dei <td> che sono numeri 1-90
-        tds = re.findall(r'<td[^>]*>\s*(\d{1,2})\s*</td>', row_html)
-        nums = [int(n) for n in tds if 1 <= int(n) <= 90]
-
-        if len(nums) < 7:
-            continue
-
-        main  = sorted(nums[:6])
-        jolly = nums[6]
-        ss    = nums[7] if len(nums) >= 8 else None
-
-        draw = {'date': date_str, 'nums': main, 'jolly': jolly}
+        draw = {'date': date_str, 'nums': sorted(mains), 'jolly': jolly}
         if ss:
             draw['ss'] = ss
-
-        # Evita duplicati nella stessa esecuzione
         if not any(d['date'] == date_str for d in draws):
             draws.append(draw)
-
     draws.sort(key=lambda d: d['date'])
     print(f'  Parsed: {len(draws)} estrazioni per {year}')
     if draws:
@@ -173,13 +167,13 @@ def main():
 
     # 2. Scraping anno corrente
     print(f'\n2. Scarico estrazioni {THIS_YEAR}...')
-    url = f'{BASE_URL}/{THIS_YEAR}'
+    url = f'{BASE_URL}-{THIS_YEAR}'
     html = fetch_url(url)
     if not html:
         print('   ERRORE: impossibile scaricare la pagina')
         sys.exit(1)
 
-    print(f'   HTML: {len(html)} chars, contiene estrazione-: {"estrazione-" in html}')
+    print(f'   HTML: {len(html)} chars, boxArchiveNumbers: {html.count("boxArchiveNumbers")}')
     new_draws = parse_year_page(html, THIS_YEAR)
 
     # 3. Nuove estrazioni

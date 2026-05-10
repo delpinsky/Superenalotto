@@ -62,50 +62,42 @@ def build_url_it(date_str, concorso_n):
 
 # ── Parser HTML ───────────────────────────────────────────────────────────────
 class WinningsParser(HTMLParser):
-    """Estrae quote da superenalotto.com/risultati-estrazione/DD-MM-YYYY
-    Il sito usa <div class="table"> con <div class="row"> e <div class="cell">
-    NON usa <table><tr><td>.
-    Struttura colonne: [Premio/categoria] [Valore € o "-"] [Vincitori]
+    """Parser DIV-based per superenalotto.com/risultati-estrazione/DD-MM-YYYY
+    Struttura: div.table > div.row[tableHeader1] + div.row > div.cell x3
+    Colonne: [Categoria] [Valore € | "-"] [Vincitori]
     """
-
     def __init__(self):
         super().__init__()
-        self.sections       = {}   # title → [rows]
+        self.sections        = {}
         self.current_section = None
-        self.in_header1     = False
-        self.in_row         = False
-        self.in_cell        = False
-        self.current_cells  = []
-        self.current_text   = ''
-        self.div_depth      = 0    # profondità div mentre siamo in un row
-        self.row_div_depth  = 0
+        self.in_header1      = False
+        self.in_row          = False
+        self.in_cell         = False
+        self.current_cells   = []
+        self.current_text    = ''
+        self.cell_depth      = 0
 
-    def _get_class(self, attrs):
+    def _cls(self, attrs):
         return dict(attrs).get('class', '')
 
     def handle_starttag(self, tag, attrs):
         if tag != 'div':
             return
-        cls = self._get_class(attrs)
+        cls = self._cls(attrs)
         classes = cls.split()
-
         if 'tableHeader1' in classes:
-            self.in_header1  = True
+            self.in_header1   = True
             self.current_text = ''
-
         elif 'row' in classes and 'tableHeader' not in cls and 'tableFooter' not in cls:
             if self.current_section is not None:
-                self.in_row        = True
+                self.in_row = True
                 self.current_cells = []
-                self.row_div_depth = 0
-
         elif 'cell' in classes and self.in_row:
             self.in_cell      = True
             self.current_text = ''
-            self.div_depth    = 0
-
+            self.cell_depth   = 0
         elif self.in_cell:
-            self.div_depth += 1
+            self.cell_depth += 1
 
     def handle_endtag(self, tag):
         if tag != 'div':
@@ -117,27 +109,21 @@ class WinningsParser(HTMLParser):
                     self.sections[title] = []
                 self.current_section = title
             self.in_header1 = False
-
         elif self.in_cell:
-            if self.div_depth > 0:
-                self.div_depth -= 1
+            if self.cell_depth > 0:
+                self.cell_depth -= 1
             else:
                 self.current_cells.append(self.current_text.strip())
                 self.in_cell = False
-
         elif self.in_row:
-            self.row_div_depth -= 1
-            if self.row_div_depth < 0:
-                # Fine del div.row
-                if len(self.current_cells) >= 2 and self.current_section:
-                    cat   = self.current_cells[0]
-                    val   = self.current_cells[1] if len(self.current_cells) > 1 else '-'
-                    nwin  = self.current_cells[2] if len(self.current_cells) > 2 else '0'
-                    # Salta righe header
-                    if not re.match(r'^(premio|valore|vincitori)', cat, re.I):
-                        self.sections[self.current_section].append([cat, val, nwin])
-                self.in_row = False
-                self.current_cells = []
+            if len(self.current_cells) >= 2 and self.current_section:
+                cat  = self.current_cells[0]
+                val  = self.current_cells[1] if len(self.current_cells) > 1 else '-'
+                nwin = self.current_cells[2] if len(self.current_cells) > 2 else '0'
+                if not re.match(r'^(premio|valore|vincitori)', cat, re.I) and cat:
+                    self.sections[self.current_section].append([cat, val, nwin])
+            self.in_row = False
+            self.current_cells = []
 
     def handle_data(self, data):
         if self.in_header1 or self.in_cell:
@@ -145,7 +131,7 @@ class WinningsParser(HTMLParser):
 
     @property
     def rows(self):
-        """Ritorna le righe della sezione Quote SuperEnalotto."""
+        """Righe della sezione Quote SuperEnalotto (esclude SuperStar e WinBox)."""
         for title, rows in self.sections.items():
             if 'SuperEnalotto' in title and 'SuperStar' not in title and 'WinBox' not in title:
                 return rows
@@ -153,7 +139,6 @@ class WinningsParser(HTMLParser):
 
     @property
     def all_rows(self):
-        """Tutte le righe di tutte le sezioni."""
         all_r = []
         for rows in self.sections.values():
             all_r.extend(rows)
@@ -161,13 +146,12 @@ class WinningsParser(HTMLParser):
 
 
 def parse_html(html):
-    """Parsa HTML da superenalotto.com/risultati-estrazione/DD-MM-YYYY. Ritorna dict o None."""
+    """Parsa HTML da superenalotto.com/risultati-estrazione/. Ritorna dict o None."""
     p = WinningsParser()
     p.feed(html)
     result = _extract_quotes(p.rows)
     if result:
         return result
-    # Fallback: tutte le righe di tutte le sezioni
     return _extract_quotes(p.all_rows)
 
 # ── Fetch via proxy ───────────────────────────────────────────────────────────
@@ -188,7 +172,7 @@ def fetch(url, aggressive=False):
                 req = urllib.request.Request(purl, headers=HEADERS)
                 with urllib.request.urlopen(req, timeout=25) as resp:
                     html = resp.read().decode('utf-8', errors='ignore')
-                    if len(html) > 1000 and ('punti' in html or 'tableHeader1' in html or 'Quote' in html):
+                    if len(html) > 1000 and ('tableHeader1' in html or 'punti' in html):
                         return html
             except Exception:
                 pass

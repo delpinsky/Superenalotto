@@ -1215,7 +1215,7 @@ const DONATION_KEY    = 'superenalotto_donation_code';
 const GIST_ID_KEY     = 'superenalotto_gist_id';
 const DONATION_SECRET = 'Chris-1234-1234-Super';
 const GH_API          = 'https://api.github.com/repos/' + GH_REPO + '/contents/' + GH_FILE;
-const SRC = year => `https://www.superenalotto.net/estrazioni/${year}`;
+const SRC = year => `https://www.superenalotto.com/archivio/estrazioni-${year}`;
 const SRC_FRESH = year => SRC(year); // timestamp is now in the proxy URL, not here
 
 /* ═══════════════════════════════════════════════
@@ -1270,6 +1270,30 @@ function parseYearPage(html, year) {
     arr.forEach((dr, i) => { if (!dr.concorso) dr.concorso = i + 1; });
     return arr;
   }
+
+  // ── METODO 0: superenalotto.com/archivio/estrazioni-YYYY — div.boxArchiveNumbers ──
+  const MESI_M0 = {gennaio:1,febbraio:2,marzo:3,aprile:4,maggio:5,giugno:6,
+    luglio:7,agosto:8,settembre:9,ottobre:10,novembre:11,dicembre:12};
+  doc.querySelectorAll('.boxArchiveNumbers').forEach(block => {
+    const dateEl = block.querySelector('.boxarchiveDate');
+    if (!dateEl) return;
+    const dm = dateEl.textContent.trim().match(/(\d{1,2})\s+(\w+)\s+(\d{4})/i);
+    if (!dm) return;
+    const mon = MESI_M0[dm[2].toLowerCase()];
+    if (!mon || parseInt(dm[3]) !== year) return;
+    const dateStr = `${dm[3]}-${String(mon).padStart(2,'0')}-${dm[1].padStart(2,'0')}`;
+    const jollyEl = block.querySelector('.boxArchiveNumberRed');
+    const ssEl    = block.querySelector('.boxArchiveNumberstar');
+    const jolly   = jollyEl ? parseInt(jollyEl.textContent) : null;
+    const ss      = ssEl    ? parseInt(ssEl.textContent)    : null;
+    const allNums = [...block.querySelectorAll('.boxArchiveNumber')]
+      .map(el => parseInt(el.textContent)).filter(n => n >= 1 && n <= 90);
+    const main = allNums.slice(0,6).sort((a,b) => a-b);
+    if (main.length < 6 || !jolly) return;
+    if (!results.find(r => r.date === dateStr))
+      results.push({ date: dateStr, nums: main, jolly, ss: ss||null });
+  });
+  if (results.length) return finalise(results);
 
   // ── METODO 1: superenalotto.net — table con link /estrazioni/DD-MM-YYYY
   //    Struttura: <td>68/26</td> <td>data</td> <td><li>num</li>…</td> <td><li>jolly</li></td> <td><li>ss</li></td> <td><a>link</a></td>
@@ -2254,50 +2278,33 @@ function renderSearchDraw(dr, index) {
   vToggleBtn.addEventListener('click', async () => {
     const arrow = vToggleBtn.querySelector('.v-arrow');
     const isOpen = vBody.style.maxHeight !== '0px' && vBody.style.maxHeight !== '';
-    if (isOpen) {
-      vBody.style.maxHeight = '0px';
-      if (arrow) arrow.style.transform = 'rotate(0deg)';
-      return;
-    }
-    // Nessun dato nel db statico → fetch live
+    if (isOpen) { vBody.style.maxHeight='0px'; if(arrow) arrow.style.transform='rotate(0deg)'; return; }
     if (!vData) {
-      vBody.innerHTML = '<div style="padding:10px 0;font-size:12px;color:var(--muted)">⏳ Caricamento vincite…</div>';
-      vBody.style.maxHeight = '60px';
-      if (arrow) arrow.style.transform = 'rotate(180deg)';
-      const live = await fetchWinningsLive(dr.date);
+      vBody.innerHTML='<div style="padding:10px 0;font-size:12px;color:var(--muted)">&#9203; Caricamento vincite...</div>';
+      vBody.style.maxHeight='60px'; if(arrow) arrow.style.transform='rotate(180deg)';
+      const live=await fetchWinningsLive(dr.date);
       if (live) {
-        const CATS = [
-          {k:'p6', l:'6 punti'}, {k:'p5j', l:'5 punti + Jolly'},
-          {k:'p5', l:'5 punti'}, {k:'p4', l:'4 punti'},
-          {k:'p3', l:'3 punti'}, {k:'p2', l:'2 punti'}
-        ];
-        let t = '<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px">'
-              + '<colgroup><col><col style="width:150px"></colgroup>'
-              + '<thead><tr>'
-              + '<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
-              + '<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio unitario</th>'
-              + '</tr></thead><tbody>';
-        CATS.forEach(({k, l}, i) => {
-          const v = live[k], noW = v == null, isJP = i === 0;
-          const bg = i % 2 === 0 ? 'background:var(--surface2)' : '';
-          const cc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text)';
-          const vc = isJP ? 'color:var(--gold);font-weight:600' : noW ? 'color:var(--muted)' : 'color:var(--text);font-weight:500';
-          t += `<tr style="${bg}"><td style="padding:5px 6px;${cc}">${l}</td>`
-             + `<td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v, dr.date)}</td></tr>`;
+        const CATS=[{k:'p6',l:'6 punti'},{k:'p5j',l:'5 punti + Jolly'},{k:'p5',l:'5 punti'},{k:'p4',l:'4 punti'},{k:'p3',l:'3 punti'},{k:'p2',l:'2 punti'}];
+        let t='<table style="width:100%;border-collapse:collapse;font-size:13px;margin-top:8px"><colgroup><col><col style="width:150px"></colgroup><thead><tr>'
+            +'<th style="text-align:left;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Categoria</th>'
+            +'<th style="text-align:right;padding:4px 6px;font-size:10px;color:var(--muted);font-weight:400">Premio</th>'
+            +'</tr></thead><tbody>';
+        CATS.forEach(({k,l},i)=>{
+          const v=live[k],noW=v==null,isJP=i===0,bg=i%2===0?'background:var(--surface2)':'';
+          const cc=isJP?'color:var(--gold);font-weight:600':noW?'color:var(--muted)':'color:var(--text)';
+          const vc=isJP?'color:var(--gold);font-weight:600':noW?'color:var(--muted)':'color:var(--text);font-weight:500';
+          t+=`<tr style="${bg}"><td style="padding:5px 6px;${cc}">${l}</td><td style="padding:5px 6px;text-align:right;white-space:nowrap;${vc}">${fmtEuro(v,dr.date)}</td></tr>`;
         });
-        t += '</tbody></table>';
-        vBody.innerHTML = t;
-        const badge = vToggleBtn.querySelector('span[style*="italic"]');
-        if (badge) badge.remove();
-        vBody.style.maxHeight = '400px';
+        t+='</tbody></table>';
+        vBody.innerHTML=t; vBody.style.maxHeight='400px';
+        const badge=vToggleBtn.querySelector('span[style*="italic"]'); if(badge) badge.remove();
       } else {
-        vBody.innerHTML = '<div style="padding:8px 0;font-size:12px;color:var(--muted);font-style:italic">Vincite non disponibili per questa estrazione.</div>';
-        vBody.style.maxHeight = '60px';
+        vBody.innerHTML='<div style="padding:8px 0;font-size:12px;color:var(--muted);font-style:italic">Vincite non disponibili per questa estrazione.</div>';
+        vBody.style.maxHeight='60px';
       }
       return;
     }
-    vBody.style.maxHeight = '400px';
-    if (arrow) arrow.style.transform = 'rotate(180deg)';
+    vBody.style.maxHeight='400px'; if(arrow) arrow.style.transform='rotate(180deg)';
   });
 
   vSection.appendChild(vToggleBtn);
@@ -4158,11 +4165,8 @@ function saveLastDraw(dr) {
 
 // URL per singola estrazione: superenalotto.com/risultati-estrazione/DD-MM-YYYY
 function buildWinningsUrl(dateStr) {
-  // dateStr = YYYY-MM-DD → risultati-estrazione/DD-MM-YYYY (confermato funzionante)
   const [y, m, d] = dateStr.split('-');
-  const dd = d.padStart(2, '0');
-  const mm = m.padStart(2, '0');
-  const url = `https://www.superenalotto.com/risultati-estrazione/${dd}-${mm}-${y}`;
+  const url = `https://www.superenalotto.com/risultati-estrazione/${d.padStart(2,'0')}-${m.padStart(2,'0')}-${y}`;
   console.log('Winnings URL:', url);
   return url;
 }
@@ -4170,93 +4174,52 @@ function buildWinningsUrl(dateStr) {
 // Parsa le 3 tabelle vincite dall'HTML di superenalotto.com
 // Struttura: <th>Premio</th><th>Valore in Euro (€)</th><th>Vincitori</th>
 function parseWinningsHtml(html) {
-  // Il sito superenalotto.com usa div.table / div.row / div.cell (NON <table>)
-  // Struttura: <div class="table">
-  //   <div class="row tableHeader1"><div class="cell colspan3">Quote SuperEnalotto</div></div>
-  //   <div class="row tableHeader2"><div class="cell">Premio</div>...</div>
-  //   <div class='row'><div class='cell'>6 punti</div><div class='cell'>-</div><div class='cell bold'>0</div></div>
-  // Formato colonne: [categoria] [valore€ | "-"] [vincitori]
-
-  const sections = {};      // title → [rows]
+  // superenalotto.com usa div.table/div.row/div.cell (NON <table><tr><td>)
+  // <div class="row tableHeader1"><div class="cell colspan3">Quote SuperEnalotto</div></div>
+  // <div class='row'><div class='cell'>6 punti</div><div class='cell'>-</div><div class='cell bold'>0</div></div>
+  const sections = {};
   let currentSection = null;
-
-  // Regex per estrarre i div.cell da un div.row
-  const cellRe = /class=['"]cell[^'"]*['"][^>]*>([\s\S]*?)<\/div>/g;
-
-  // Spezza l'HTML in blocchi div.table
-  const tableRe = /<div[^>]+class=['"][^'"]*\btable\b[^'"]*['"][^>]*>([\s\S]*?)<\/div>\s*<div[^>]+class=['"]vseparator/g;
-  // Approccio più robusto: cerca tutti i div.row tableHeader1 per i titoli
-  // e poi i div.row successivi per i dati
-
-  // Parser lineare sull'HTML raw
   let pos = 0;
-  const len = html.length;
-
-  while (pos < len) {
-    // Cerca prossimo div.row
-    const rowStart = html.indexOf('<div', pos);
-    if (rowStart === -1) break;
-
-    // Estrai class del div
-    const tagEnd = html.indexOf('>', rowStart);
-    if (tagEnd === -1) { pos = rowStart + 1; continue; }
-    const tag = html.slice(rowStart, tagEnd + 1);
-    const classMatch = tag.match(/class=['"]([^'"]*)['"]/);
-    const cls = classMatch ? classMatch[1] : '';
-
-    if (cls.includes('tableHeader1')) {
-      // Titolo sezione: estrai testo
-      const cellStart = html.indexOf('>', html.indexOf('<div', tagEnd));
-      const cellEnd   = html.indexOf('</div>', cellStart);
-      if (cellStart !== -1 && cellEnd !== -1) {
-        const title = html.slice(cellStart + 1, cellEnd).trim();
-        if (title && !sections[title]) sections[title] = [];
-        currentSection = title || currentSection;
+  while (pos < html.length) {
+    const divPos = html.indexOf('<div', pos);
+    if (divPos === -1) break;
+    const tagEnd = html.indexOf('>', divPos);
+    if (tagEnd === -1) { pos = divPos+1; continue; }
+    const tag = html.slice(divPos, tagEnd+1);
+    const cm  = tag.match(/class=["']([^"']*)['"]/);
+    const cls = cm ? cm[1] : '';
+    const classes = cls.split(' ');
+    if (classes.includes('tableHeader1')) {
+      const inner = html.indexOf('>', html.indexOf('<div', tagEnd));
+      const end   = html.indexOf('</div>', inner+1);
+      if (inner !== -1 && end !== -1) {
+        const title = html.slice(inner+1, end).replace(/<[^>]+>/g,'').trim();
+        if (title) { if (!sections[title]) sections[title]=[]; currentSection=title; }
       }
-      pos = tagEnd + 1;
-    } else if (cls.split(' ').includes('row') && !cls.includes('tableHeader') && !cls.includes('tableFooter') && currentSection) {
-      // Riga dati: estrai le celle
+      pos = tagEnd+1;
+    } else if (classes.includes('row') && !cls.includes('tableHeader') && !cls.includes('tableFooter') && currentSection) {
       const rowEnd = html.indexOf('</div>', tagEnd);
-      if (rowEnd === -1) { pos = tagEnd + 1; continue; }
-      // Leggi tutte le div.cell dentro questo row
-      // Il row è: <div class='row'>CELLS</div>
-      // ma potrebbe essere nested — leggiamo solo il primo livello
-      const rowContent = html.slice(tagEnd + 1, rowEnd);
-      const cells = [];
-      let cm;
-      const innerCellRe = /<div[^>]+class=['"][^'"]*\bcell\b[^'"]*['"][^>]*>([\s\S]*?)<\/div>/g;
-      while ((cm = innerCellRe.exec(rowContent)) !== null) {
-        cells.push(cm[1].trim().replace(/\s+/g, ' '));
+      if (rowEnd === -1) { pos=tagEnd+1; continue; }
+      const cells=[], cr=/class=["'][^"']*\bcell\b[^"'"]*["'][^>]*>([\s\S]*?)<\/div>/g;
+      let mc;
+      while ((mc=cr.exec(html.slice(tagEnd+1,rowEnd)))!==null)
+        cells.push(mc[1].replace(/<[^>]+>/g,'').trim());
+      if (cells.length>=2) {
+        const cat=cells[0], val=cells[1], nwin=cells[2]||'0';
+        if (!/^(premio|valore|vincitori)/i.test(cat) && cat) {
+          const prize=(val==='-'||val==='–'||val==='')?null:val;
+          sections[currentSection].push({cat,prize,winners:String(parseInt(nwin.replace(/[^0-9]/g,''))||0)});
+        }
       }
-      if (cells.length >= 2 && currentSection) {
-        const cat   = cells[0];
-        const val   = cells[1];
-        const nwin  = cells[2] || '0';
-        // Salta righe header
-        if (/^(premio|valore|vincitori|match|prize)/i.test(cat)) { pos = rowEnd + 1; continue; }
-        // "-" = nessun vincitore / jackpot non vinto
-        const prize   = (val === '-' || val === '–' || val === '' || val === '0,00 €') ? null : val;
-        const winners = String(parseInt(nwin.replace(/[^0-9]/g,'')) || 0);
-        sections[currentSection].push({ cat, prize, winners });
-      }
-      pos = rowEnd + 1;
-    } else {
-      pos = tagEnd + 1;
-    }
+      pos=rowEnd+1;
+    } else { pos=tagEnd+1; }
   }
-
-  // Converti in array sezioni, escludi SuperStar e WinBox se non richiesti
-  const result = [];
-  for (const [title, rows] of Object.entries(sections)) {
-    if (!rows.length) continue;
-    result.push({ title, rows });
-  }
-  // Ordina: SuperEnalotto → SuperStar → WinBox
-  const order = ['SuperEnalotto', 'SuperStar', 'WinBox'];
-  result.sort((a, b) => {
-    const ai = order.findIndex(k => a.title.includes(k));
-    const bi = order.findIndex(k => b.title.includes(k));
-    return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+  const result=[];
+  for(const [title,rows] of Object.entries(sections)) if(rows.length) result.push({title,rows});
+  const order=['SuperEnalotto','SuperStar','WinBox'];
+  result.sort((a,b)=>{
+    const ai=order.findIndex(k=>a.title.includes(k)), bi=order.findIndex(k=>b.title.includes(k));
+    return (ai===-1?99:ai)-(bi===-1?99:bi);
   });
   return result;
 }
@@ -4325,45 +4288,34 @@ function renderWinningsTable(sections, drawDate) {
   loading.style.display = 'none';
 }
 
-// Helper silenzioso: scraping vincite senza UI — ritorna dict {p6..p2} o null
+// Helper silenzioso: fetch vincite senza UI — ritorna {p6..p2} o null
 async function fetchWinningsLive(dateStr) {
   const winUrl = buildWinningsUrl(dateStr);
-  for (let pi = 0; pi < PROXIES.length; pi++) {
+  for (let pi=0; pi<PROXIES.length; pi++) {
     try {
-      const proxyUrl = PROXIES[pi](winUrl);
-      const html = await new Promise((resolve, reject) => {
-        const xhr = new XMLHttpRequest();
-        xhr.open('GET', proxyUrl);
-        xhr.timeout = 12000;
-        xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
-        xhr.setRequestHeader('Pragma', 'no-cache');
-        xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
-        xhr.onerror   = () => reject(new Error('XHR error'));
-        xhr.ontimeout = () => reject(new Error('timeout'));
+      const h = await new Promise((resolve,reject) => {
+        const xhr=new XMLHttpRequest(); xhr.open('GET',PROXIES[pi](winUrl)); xhr.timeout=12000;
+        xhr.setRequestHeader('Cache-Control','no-cache, no-store');
+        xhr.setRequestHeader('Pragma','no-cache');
+        xhr.onload=()=>xhr.status===200?resolve(xhr.responseText):reject(new Error('HTTP '+xhr.status));
+        xhr.onerror=()=>reject(new Error('XHR error')); xhr.ontimeout=()=>reject(new Error('timeout'));
         xhr.send();
       });
-      if (html.length < 500 || !html.includes('punti')) continue;
-      const secs = parseWinningsHtml(html);
-      const seSec = secs.find(s => s.title.includes('SuperEnalotto') && !s.title.includes('SuperStar'));
-      if (!seSec || seSec.rows.length < 4) continue;
-      // Mappa righe → {p6, p5j, p5, p4, p3, p2}
-      const keys = ['p6','p5j','p5','p4','p3','p2'];
-      const result = {};
-      seSec.rows.slice(0, 6).forEach((r, i) => {
-        if (i >= keys.length) return;
-        const w = parseInt(String(r.winners)) || 0;
-        if (w === 0 || r.prize === null) { result[keys[i]] = null; return; }
-        // prize es. "27.637,08 €" → numero float
-        const ps = String(r.prize).replace(/[€\s]/g, '').replace(/\./g, '').replace(',', '.');
-        const pv = parseFloat(ps);
-        result[keys[i]] = isNaN(pv) || pv === 0 ? null : pv;
+      if (h.length<500||(!h.includes('tableHeader1')&&!h.includes('punti'))) continue;
+      const secs=parseWinningsHtml(h);
+      const seSec=secs.find(s=>s.title.includes('SuperEnalotto')&&!s.title.includes('SuperStar'));
+      if (!seSec||seSec.rows.length<4) continue;
+      const keys=['p6','p5j','p5','p4','p3','p2']; const result={};
+      seSec.rows.slice(0,6).forEach((r,i)=>{
+        if(i>=keys.length)return;
+        const w=parseInt(String(r.winners))||0;
+        if(w===0||r.prize===null){result[keys[i]]=null;return;}
+        const ps=String(r.prize).replace(/[€\s]/g,'').replace(/\.(?=\d{3})/g,'').replace(',','.');
+        const pv=parseFloat(ps); result[keys[i]]=isNaN(pv)||pv===0?null:pv;
       });
-      keys.forEach(k => { if (!(k in result)) result[k] = null; });
-      if (Object.values(result).some(v => v !== null)) {
-        console.log('fetchWinningsLive OK:', dateStr, result);
-        return result;
-      }
-    } catch(e) { console.warn('fetchWinningsLive proxy', pi, e.message); }
+      keys.forEach(k=>{if(!(k in result))result[k]=null;});
+      if(Object.values(result).some(v=>v!==null)){console.log('fetchWinningsLive OK:',dateStr);return result;}
+    } catch(e){console.warn('fetchWinningsLive proxy',pi,e.message);}
   }
   return null;
 }
@@ -4412,11 +4364,10 @@ async function fetchWinnings(dateStr, concorsoN) {
         xhr.send();
       });
 
-      console.log(`proxy ${pi} html len:`, html.length, 'has punti:', html.includes('punti'), 'has tableHeader1:', html.includes('tableHeader1'));
+      console.log(`proxy ${pi} len:`, html.length, 'tableHeader1:', html.includes('tableHeader1'));
 
-      // Sanity check: la pagina deve contenere la struttura div-based attesa
       if (html.length < 500) throw new Error('Risposta troppo corta: ' + html.length);
-      if (!html.includes('punti') && !html.includes('tableHeader1')) throw new Error('Pagina senza dati vincite');
+      if (!html.includes('tableHeader1') && !html.includes('punti')) throw new Error('Pagina senza dati vincite');
 
       const sections = parseWinningsHtml(html);
       console.log(`proxy ${pi} sections found:`, sections.length, sections.map(s => s.title));
@@ -4625,7 +4576,7 @@ document.getElementById('json-import-input').addEventListener('change', e => {
       showLastDrawFromDB();
       document.getElementById('sistema-section').style.display = 'block';
       document.getElementById('results').style.display = 'block';
-      setTimeout(() => fetchLastDraw(), 1000);
+      setTimeout(() => fetchLastDraw(), 1200);
     } catch(err) {
       setSt('err', 'Errore nel file JSON: ' + err.message);
     }
@@ -5501,24 +5452,20 @@ async function fetchLastDraw() {
         const url  = proxyFn(SRC_FRESH(thisYear));
         const html = await new Promise((resolve, reject) => {
           const xhr = new XMLHttpRequest();
-          xhr.open('GET', url);
-          xhr.timeout = 20000;
+          xhr.open('GET', url); xhr.timeout = 20000;
           xhr.setRequestHeader('Cache-Control', 'no-cache, no-store');
           xhr.setRequestHeader('Pragma', 'no-cache');
-          xhr.onload = () => xhr.status === 200 ? resolve(xhr.responseText) : reject(new Error('HTTP ' + xhr.status));
-          xhr.onerror   = () => reject(new Error('XHR error'));
+          xhr.onload = () => xhr.status===200 ? resolve(xhr.responseText) : reject(new Error('HTTP '+xhr.status));
+          xhr.onerror = () => reject(new Error('XHR error'));
           xhr.ontimeout = () => reject(new Error('timeout'));
           xhr.send();
         });
-        if (!html.includes('estrazioni')) throw new Error('Pagina vuota o proxy cache');
+        if (!html.includes('estrazioni') && !html.includes('boxArchiveNumbers')) throw new Error('Pagina vuota');
         const parsed = parseYearPage(html, thisYear);
         if (!parsed.length) throw new Error('Nessun dato parsato');
-        // Anti-stale: la data più recente nella risposta deve essere >= quella nel db
-        const latestInDb     = draws.length ? draws[draws.length - 1].date : '';
-        const latestInParsed = parsed.reduce((mx, d) => d.date > mx ? d.date : mx, '');
-        if (latestInDb && latestInParsed < latestInDb) {
-          throw new Error('Risposta stale: ' + latestInParsed + ' < ' + latestInDb);
-        }
+        const latestInDb     = draws.length ? draws[draws.length-1].date : '';
+        const latestInParsed = parsed.reduce((mx,d) => d.date>mx?d.date:mx, '');
+        if (latestInDb && latestInParsed < latestInDb) throw new Error('Risposta stale: '+latestInParsed);
         yearDraws = parsed;
         break; // proxy worked
       } catch(e) {
@@ -6292,7 +6239,7 @@ async function ghDownload(silent) {
     if (typeof showForecastSection === 'function') showForecastSection();
     ghSetStatus('✓ Database caricato da GitHub: ' + draws.length + ' estrazioni.', '#489a45');
     fetchJackpotOnly();
-    setTimeout(() => fetchLastDraw(), 1000);
+    setTimeout(() => fetchLastDraw(), 1200);
     return true;
   } catch(e) {
     if (!silent) ghSetStatus('✗ Errore: ' + e.message, '#e74c3c');
