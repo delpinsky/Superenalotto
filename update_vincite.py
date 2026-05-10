@@ -209,13 +209,21 @@ def _extract_quotes(rows):
 
 def parse_html_net(html):
     """Parsa HTML da superenalotto.net — colonne: [cat, premio_vincitore, vincitori, montepremi].
+    La pagina ha piu' tabelle (WinBox, SuperEnalotto, SuperStar): cerchiamo la riga '6 punti'.
     Vincitori==0 → None (il valore mostrato e' il jackpot accumulato, non un premio reale).
     """
     p = WinningsParserNet()
     p.feed(html)
     if not p.rows: return None
     keys = ['p6','p5j','p5','p4','p3','p2']
-    data_rows = [r for r in p.rows if not re.match(r'^(numeri|premio|cat)',r[0],re.I)]
+    # Salta le righe header e WinBox — cerca la prima riga "N punti"
+    se_start = None
+    for i, r in enumerate(p.rows):
+        if re.match(r'^\d+ punti', r[0], re.I):
+            se_start = i
+            break
+    if se_start is None: return None
+    data_rows = p.rows[se_start:se_start + 6]
     result = {}
     for i, key in enumerate(keys):
         if i >= len(data_rows): result[key] = None; continue
