@@ -38,32 +38,18 @@ def fetch_url(url, retries=3):
 
 
 def parse_year_page(html, year):
-    """
-    Parser DIV-based per superenalotto.com/archivio/estrazioni-YYYY.
-    Struttura:
-      <div class="boxArchiveNumbers">
-        <div class="boxarchiveDate">09 maggio 2026</div>
-        <div class="boxArchiveNumber">9</div>  (x6 numeri principali)
-        <div class="boxArchiveNumber boxArchiveNumberRed">11<div>Jolly</div></div>
-        <div class="boxArchiveNumber boxArchiveNumberstar">11<div>Superstar</div></div>
-      </div>
-    """
-    MESI = {
-        'gennaio':'01','febbraio':'02','marzo':'03','aprile':'04',
+    """Parser DIV-based per superenalotto.com/archivio/estrazioni-YYYY."""
+    MESI = {'gennaio':'01','febbraio':'02','marzo':'03','aprile':'04',
         'maggio':'05','giugno':'06','luglio':'07','agosto':'08',
-        'settembre':'09','ottobre':'10','novembre':'11','dicembre':'12'
-    }
+        'settembre':'09','ottobre':'10','novembre':'11','dicembre':'12'}
     draws = []
     for part in re.split(r'<div[^>]+class=["\']boxArchiveNumbers["\']', html)[1:]:
         dm = re.search(r'boxarchiveDate[^>]*>(\d{1,2})\s+(\w+)\s+(\d{4})', part, re.I)
-        if not dm:
-            continue
+        if not dm: continue
         day, month_it, yr = dm.group(1), dm.group(2).lower(), dm.group(3)
-        if int(yr) != year:
-            continue
+        if int(yr) != year: continue
         month = MESI.get(month_it)
-        if not month:
-            continue
+        if not month: continue
         date_str = f'{yr}-{month}-{day.zfill(2)}'
         jolly_m = re.search(r'boxArchiveNumberRed[^>]*>(\d{1,2})', part)
         ss_m    = re.search(r'boxArchiveNumberstar[^>]*>(\d{1,2})', part)
@@ -71,17 +57,13 @@ def parse_year_page(html, year):
         ss    = int(ss_m.group(1))    if ss_m    else None
         all_nums = [int(n) for n in re.findall(r'class=["\']boxArchiveNumber[^"\'>]*["\'][^>]*>(\d{1,2})', part)]
         mains = all_nums[:6]
-        if len(mains) < 6 or not jolly:
-            continue
+        if len(mains) < 6 or not jolly: continue
         draw = {'date': date_str, 'nums': sorted(mains), 'jolly': jolly}
-        if ss:
-            draw['ss'] = ss
-        if not any(d['date'] == date_str for d in draws):
-            draws.append(draw)
+        if ss: draw['ss'] = ss
+        if not any(d['date'] == date_str for d in draws): draws.append(draw)
     draws.sort(key=lambda d: d['date'])
     print(f'  Parsed: {len(draws)} estrazioni per {year}')
-    if draws:
-        print(f'  Prima: {draws[0]["date"]}, Ultima: {draws[-1]["date"]}')
+    if draws: print(f'  Prima: {draws[0]["date"]}, Ultima: {draws[-1]["date"]}')
     return draws
 
 
