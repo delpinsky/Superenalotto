@@ -99,7 +99,6 @@ class WinningsParser(HTMLParser):
         if self.in_header1 or self.in_cell: self.current_text+=data
     @property
     def rows(self):
-        """Righe sezione Quote SuperEnalotto (esclude SuperStar e WinBox)."""
         for title,rows in self.sections.items():
             if 'SuperEnalotto' in title and 'SuperStar' not in title and 'WinBox' not in title: return rows
         return []
@@ -109,6 +108,33 @@ class WinningsParser(HTMLParser):
         for rows in self.sections.values(): r.extend(rows)
         return r
 
+
+def parse_quote(text):
+    """'52.205,24 €' → 52205.24,  '880.400,00 L' → 454.71 (lire→euro),  '-' → None"""
+    text = str(text).strip().replace('\xa0','').replace('\u00a0','')
+    # Rileva se è in Lire (termina con L o lire)
+    import re as _re
+    is_lire = bool(_re.search(r'\bL\s*$', text))
+    text = text.replace('€','')
+    text = _re.sub(r'\s*L\s*$', '', text).strip()
+    if not text or text in ('-','—','N/D','–'):
+        return None
+    try:
+        val = float(text.replace('.','').replace(',','.'))
+        if not val:
+            return None
+        if is_lire:
+            val = round(val * _LIRE_TO_EURO, 2)
+        return val
+    except ValueError:
+        return None
+
+def parse_vincitori(text):
+    """'23.212' → 23212"""
+    try:
+        return int(str(text).strip().replace('.','').replace(',','').replace('\xa0',''))
+    except ValueError:
+        return None
 
 def _extract_quotes(rows):
     """
@@ -148,6 +174,8 @@ def _extract_quotes(rows):
         result[key] = None if winners == 0 else prize
 
     return result if any(v is not None for v in result.values()) else None
+
+
 def parse_html(html):
     """Parsa HTML da superenalotto.com/risultati-estrazione/. Ritorna dict o None."""
     p = WinningsParser()
@@ -155,7 +183,6 @@ def parse_html(html):
     return _extract_quotes(p.rows) or _extract_quotes(p.all_rows)
 
 
-# ── Fetch via proxy ───────────────────────────────────────────────────────────
 def fetch(url, aggressive=False):
     """
     Tenta il download via proxy CORS.
