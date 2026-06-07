@@ -1,7 +1,7 @@
 # 🎰 SuperEnalotto — Analisi Statistica PWA
 
 [![GitHub Pages](https://img.shields.io/badge/Live-delpinsky.github.io%2FSuperenalotto-brightgreen)](https://delpinsky.github.io/Superenalotto/)
-[![Version](https://img.shields.io/badge/versione-v1.0.26-blue)]()
+[![Version](https://img.shields.io/badge/versione-v1.0.32-blue)]()
 [![License](https://img.shields.io/badge/licenza-uso%20personale-lightgrey)]()
 
 App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEnalotto. Scarica l'intero storico dal 1997 ad oggi direttamente da superenalotto.com, costruisce un database locale nel browser e offre strumenti statistici, previsioni AI e sistemi di gioco.
@@ -79,6 +79,59 @@ voglio numeri freddi degli ultimi due anni
 ---
 
 ## 📋 Changelog
+
+### v1.0.32 — 2026-06-07
+
+#### 🔧 `index.html` — Fix layout Elenco Estrazioni
+- **Fix larghezza tabella** — la sezione `#elist-section` era posizionata fuori dal `<div class="wrap">` e usava `max-width:var(--content-max)`, variabile CSS mai definita; spostata dentro il `.wrap` per ereditare automaticamente `max-width:1060px`, padding laterali e spaziatura identici a tutte le altre card
+- **Fix distanza dalla sezione precedente** — rimosso `margin-top:0` inline sulla card interna; ora usa il margine standard delle `.card`
+
+#### ✨ Nuova opzione periodo
+- **"Dall'inizio dell'anno"** — aggiunta al selettore periodo della sezione Elenco Estrazioni
+
+---
+
+### v1.0.31 — 2026-06-06
+
+- Versione di riferimento base con struttura principale dell'app consolidata: previsioni, risultati e sezioni statistiche
+- Prima versione stabile usata come punto di partenza per gli aggiornamenti successivi
+
+---
+
+### v1.0.30 — 2026-06-05
+
+- Correzioni più precise sulla gestione dei periodi di analisi
+- Miglioramenti alla coerenza tra i tab Vincite, Estrazioni con Match e Frequenze
+- Piccoli aggiustamenti UI per rendere la lettura più ordinata
+
+---
+
+### v1.0.29 — 2026-06-04
+
+- Prima rifinitura della sezione Risultati Analisi
+- Miglioramenti generali alla visualizzazione delle estrazioni e delle frequenze
+- Ottimizzazioni minori su layout e leggibilità
+
+---
+
+### v1.0.28 — 2026-06-03
+
+#### 🐛 `index.html` — Fix statistiche frequenze (SuperStar escluso dai 6 numeri)
+- **Causa radice** — il numero SuperStar (`dr.ss`) veniva sommato all'array `freq[]` insieme ai 6 numeri principali e al Jolly in tutti i punti di aggiornamento del database (caricamento iniziale, refresh anno corrente, salvataggio manuale, importazione JSON), gonfiando artificialmente le frequenze
+- **Fix array `freq[]` globale** — rimosso `freq[dr.ss]++` da tutte le 4 istanze (caricamento iniziale, refresh anno, salvataggio manuale, importazione JSON); rimosso anche `freq[dr.jolly]++` dagli stessi punti in quanto il Jolly non fa parte della sestina vincente
+- **Fix `buildStats()`** — la funzione usata da Claude, Grok e ChatGPT per le previsioni AI includeva `freq[dr.jolly]++` e `lastSeen[dr.jolly]` nel calcolo; entrambi rimossi (3 istanze)
+- **Invariato** — `subFreq[dr.jolly]++` e `subFreq[dr.ss]++` nella sezione "Verifica Schedina" sono stati mantenuti: lì è intenzionale, per mostrare quante volte il Jolly/SuperStar scelto dall'utente è uscito nel periodo
+
+---
+
+### v1.0.27 — 2026-06-02
+
+#### ✨ `index.html` — Aggiunta pallina SuperStar nelle previsioni statistiche
+- **Nuovo campo `ss` nei 4 metodi** — `methodHot`, `methodCold`, `methodBalanced`, `methodPairs` calcolano ora il numero SuperStar suggerito: viene selezionato il numero SS più frequente nel sottoinsieme di estrazioni del periodo, contando solo le estrazioni che hanno un valore SS disponibile (dal 2009 in poi)
+- **Pallina S viola** — aggiunta in `renderForecast()` dopo la pallina J (Jolly): stessa struttura visiva, colore `var(--purple)`, etichetta `S` in alto, con badge σ dove applicabile
+- **Sigma per SuperStar** — calcolata rispetto al numero di estrazioni con SS disponibili (`ssSub.length`), non sul totale del periodo
+
+---
 
 ### v1.0.26 — 2026-05-11
 
