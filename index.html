@@ -475,7 +475,7 @@
   .elist-ball.eb-num { background:#9bd35a;color:#fff; }
   .elist-ball.eb-jolly { background:#f65d00;color:#fff; }
   .elist-ball.eb-ss { background:#ffc200;color:#fff; }
-  .elist-row { display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--border2); }
+  .elist-row { display:flex;align-items:center;gap:8px;padding:9px 0;border-bottom:1px solid var(--border2); }
   .elist-row:last-child { border-bottom:none; }
   .elist-date { font-size:12px;color:var(--muted);min-width:80px;font-family:'DM Mono',monospace;flex-shrink:0; }
   .elist-balls { display:flex;gap:5px;flex-wrap:wrap;align-items:center; }
@@ -745,7 +745,8 @@
         <label style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">Periodo</label>
         <select id="res-period" class="res-period-sel">
           <option value="0">Storico completo</option>
-            <option value="1">Ultimo mese</option>
+          <option value="999">Dall'inizio dell'anno</option>
+          <option value="1">Ultimo mese</option>
           <option value="3">3 mesi</option>
           <option value="6">6 mesi</option>
           <option value="12">12 mesi</option>
@@ -922,7 +923,8 @@
         <label style="font-size:9px;letter-spacing:2px;text-transform:uppercase;color:var(--muted);display:block;margin-bottom:5px">Periodo</label>
         <select id="forecast-period" class="res-period-sel">
           <option value="0">Storico completo</option>
-            <option value="1">Ultimo mese</option>
+          <option value="999">Dall'inizio dell'anno</option>
+          <option value="1">Ultimo mese</option>
           <option value="3">3 mesi</option>
           <option value="6">6 mesi</option>
           <option value="12">12 mesi</option>
@@ -1184,7 +1186,7 @@
 </div>
 <!-- ELENCO ESTRAZIONI -->
 <div id="elist-section" style="display:none">
-  <div class="card" style="padding-bottom:16px">
+  <div class="card">
     <div class="card-title">📋 Elenco Estrazioni</div>
     <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;flex-wrap:wrap">
       <select id="elist-period" class="res-period-sel">
@@ -6616,12 +6618,14 @@ window.addEventListener('load', async () => {
 ═══════════════════════════════════════════════ */
 function renderElist() {
   const months = parseInt(document.getElementById('elist-period').value);
+  let sub;
   const cutoff = new Date();
   cutoff.setMonth(cutoff.getMonth() - months);
   const cutStr = cutoff.toISOString().slice(0, 10);
-  const sub = draws.filter(d => d.date >= cutStr).sort((a,b)=>b.date.localeCompare(a.date));
+  sub = draws.filter(d => d.date >= cutStr);
 
   const info = document.getElementById('elist-info');
+  sub.sort((a,b)=>b.date.localeCompare(a.date));
   if (sub.length) {
     info.textContent = sub.length + ' estrazioni · ' + fmtD(sub[0].date) + ' → ' + fmtD(sub[sub.length-1].date);
   } else {
