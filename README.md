@@ -86,8 +86,9 @@ voglio numeri freddi degli ultimi due anni
 - **Pallino rosso per numeri "caldi di giornata"** — se uno dei 6 numeri inseriti nella schedina è uscito in una delle ultime 2 estrazioni, il cerchio viene evidenziato con bordo rosso, numero rosso e sfondo dorato trasparente (`rgba(245,200,66,.09)`) per distinguerlo visivamente dagli slot normali
 - **Aggiornamento in tempo reale** — il controllo avviene ad ogni ridisegno dei pallini: selezione manuale, caricamento da preferiti, generazione casuale e caricamento da previsioni AI
 - **Solo i 6 numeri principali** — Jolly e SuperStar non vengono controllati; mantengono i loro colori originali (rosso bordeaux e viola)
-- **Nessun dato aggiuntivo richiesto** — legge direttamente le ultime 2 estrazioni dall'array `draws[]` già in memoria, ordinate per data decrescente
-- **Allarme esteso alla griglia di selezione** — i numeri usciti nelle ultime 2 estrazioni appaiono con bordo rosso e numero rosso anche nella griglia "Scegli 6 numeri", sia in modalità 1 numero che 6 numeri; lo sfondo rimane invariato
+- **Nessun dato aggiuntivo richiesto** — legge direttamente le ultime 2 estrazioni dall'array `draws[]` già in memoria, ordinate per data decrescente (v1.0.32a)
+- **Allarme esteso alla griglia di selezione** — i numeri usciti nelle ultime 2 estrazioni appaiono con bordo rosso e numero rosso anche nella griglia "Scegli 6 numeri", sia in modalità 1 numero che 6 numeri; lo sfondo rimane invariato (v1.0.32b)
+- **Allarme esteso al Sistema di Gioco** — i numeri usciti nelle ultime 2 estrazioni appaiono con bordo rosso e numero rosso anche nella griglia del Sistema Integrale e Ridotto; rimosso il grassetto dai numeri selezionati (v1.0.32c)
 
 ---
 
