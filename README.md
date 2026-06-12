@@ -1,7 +1,7 @@
 # 🎰 SuperEnalotto — Analisi Statistica PWA
 
 [![GitHub Pages](https://img.shields.io/badge/Live-delpinsky.github.io%2FSuperenalotto-brightgreen)](https://delpinsky.github.io/Superenalotto/)
-[![Version](https://img.shields.io/badge/versione-v1.0.32-blue)]()
+[![Version](https://img.shields.io/badge/versione-v1.0.33-blue)]()
 [![License](https://img.shields.io/badge/licenza-uso%20personale-lightgrey)]()
 
 App web progressiva (PWA) per l'analisi statistica delle estrazioni del SuperEnalotto. Scarica l'intero storico dal 1997 ad oggi direttamente da superenalotto.com, costruisce un database locale nel browser e offre strumenti statistici, previsioni AI e sistemi di gioco.
@@ -79,6 +79,16 @@ voglio numeri freddi degli ultimi due anni
 ---
 
 ## 📋 Changelog
+
+### v1.0.33 — 2026-06-12
+
+#### ✨ `index.html` — Allarme numeri recenti nella schedina
+- **Pallino rosso per numeri "caldi di giornata"** — se uno dei 6 numeri inseriti nella schedina è uscito in una delle ultime 2 estrazioni, il cerchio viene evidenziato con bordo rosso, numero rosso e sfondo dorato trasparente (`rgba(245,200,66,.09)`) per distinguerlo visivamente dagli slot normali
+- **Aggiornamento in tempo reale** — il controllo avviene ad ogni ridisegno dei pallini: selezione manuale, caricamento da preferiti, generazione casuale e caricamento da previsioni AI
+- **Solo i 6 numeri principali** — Jolly e SuperStar non vengono controllati; mantengono i loro colori originali (rosso bordeaux e viola)
+- **Nessun dato aggiuntivo richiesto** — legge direttamente le ultime 2 estrazioni dall'array `draws[]` già in memoria, ordinate per data decrescente
+
+---
 
 ### v1.0.32 — 2026-06-07
 
