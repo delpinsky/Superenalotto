@@ -150,6 +150,7 @@
   .gn.sj{background:rgba(231,76,60,.16);border-color:var(--red);color:var(--red)}
   .gn.ss{background:rgba(155,89,182,.16);border-color:var(--purple);color:var(--purple)}
   .gn.tk{opacity:.24;pointer-events:none}
+  .gn.gn-recent { border: 1.5px solid #e74c3c !important; color: #e74c3c !important; }
 
   /* Results */
   .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:20px}
@@ -1630,6 +1631,11 @@ function renderSlots() {
 }
 
 function openGrid(slotId) {
+	const recentNums = new Set();
+  if (draws && draws.length) {
+    const sorted = draws.slice().sort((a,b) => b.date.localeCompare(a.date));
+    for (let i = 0; i < Math.min(2, sorted.length); i++) sorted[i].nums.forEach(n => recentNums.add(n));
+  }
   // Six-mode: ignore slot click, use multi-grid instead
   if (pickMode === 'six') { showMultiGrid(); return; }
 
@@ -1641,6 +1647,7 @@ function openGrid(slotId) {
   const grid = document.getElementById('ngrid'); grid.innerHTML='';
   for (let n=1; n<=90; n++) {
     const btn = document.createElement('div'); btn.className='gn'; btn.textContent=n;
+	if (recentNums.has(n)) btn.classList.add('gn-recent');
     if (def.t==='m') {
       const others=['s1','s2','s3','s4','s5','s6'].filter(k=>k!==slotId).map(k=>V[k]);
       if(others.includes(n)) btn.classList.add('tk');
@@ -1698,6 +1705,11 @@ document.getElementById('mode-six').addEventListener('click', () => {
 });
 
 function showMultiGrid() {
+	const recentNums = new Set();
+  if (draws && draws.length) {
+    const sorted = draws.slice().sort((a,b) => b.date.localeCompare(a.date));
+    for (let i = 0; i < Math.min(2, sorted.length); i++) sorted[i].nums.forEach(n => recentNums.add(n));
+  }
   // Pre-populate with already-chosen main nums
   multiPicked = new Set(['s1','s2','s3','s4','s5','s6'].map(k=>V[k]).filter(v=>v!==null));
   const grid = document.getElementById('ngrid');
@@ -1706,7 +1718,7 @@ function showMultiGrid() {
     'Scegli 6 numeri (' + multiPicked.size + '/6 selezionati)';
   for (let n = 1; n <= 90; n++) {
     const btn = document.createElement('div');
-    btn.className = 'gn' + (multiPicked.has(n) ? ' sm' : '');
+    btn.className = 'gn' + (multiPicked.has(n) ? ' sm' : '') + (recentNums.has(n) ? ' gn-recent' : '');
     btn.textContent = n;
     btn.addEventListener('click', () => {
       if (multiPicked.has(n)) {

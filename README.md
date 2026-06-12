@@ -87,6 +87,7 @@ voglio numeri freddi degli ultimi due anni
 - **Aggiornamento in tempo reale** — il controllo avviene ad ogni ridisegno dei pallini: selezione manuale, caricamento da preferiti, generazione casuale e caricamento da previsioni AI
 - **Solo i 6 numeri principali** — Jolly e SuperStar non vengono controllati; mantengono i loro colori originali (rosso bordeaux e viola)
 - **Nessun dato aggiuntivo richiesto** — legge direttamente le ultime 2 estrazioni dall'array `draws[]` già in memoria, ordinate per data decrescente
+- **Allarme esteso alla griglia di selezione** — i numeri usciti nelle ultime 2 estrazioni appaiono con bordo rosso e numero rosso anche nella griglia "Scegli 6 numeri", sia in modalità 1 numero che 6 numeri; lo sfondo rimane invariato
 
 ---
 
